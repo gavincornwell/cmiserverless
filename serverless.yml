@@ -1,0 +1,157 @@
+# Welcome to Serverless!
+#
+# This file is the main config file for your service.
+# It's very minimal at this point and uses default values.
+# You can always add more config options for more control.
+# We've included some commented out config examples here.
+# Just uncomment any of them to get that config option.
+#
+# For full config options, check the docs:
+#    v1.docs.serverless.com
+#
+# Happy Coding!
+
+service: cmiserverless
+
+provider:
+  name: aws
+  runtime: nodejs4.3
+
+# you can overwrite defaults here
+#defaults:
+#  stage: dev
+#  region: us-east-1
+
+# you can add packaging information here
+package:
+#  include:
+#    - include-me.js
+  exclude:
+    - test.js
+    - CMIServerless.iml
+    - node_modules/aws-sdk
+    - node_modules/dynamodb-doc
+#  artifact: my-service-code.zip
+
+functions:
+  bootstrap:
+    handler: cmis-bootstrap-service.handler
+    events:
+      - http:
+          path: bootstrap
+          method: post
+          request:
+            template:
+              application/json: '#set( $host = ".execute-api.us-east-1.amazonaws.com" )
+                                {
+                                  "repositoryId": "default",
+                                  "baseUrl": "https://$context.apiId$host/$context.stage"
+                                }'
+
+#   you can add any of the following events
+#   events:
+#     - http:
+#         path: users/create
+#         method: get
+#     - s3: ${bucket}
+#     - schedule: rate(10 minutes)
+#     - sns: greeter-topic
+
+# you can add CloudFormation resource templates here
+#resources:
+#  Resources:
+#    NewResource:
+#      Type: AWS::S3::Bucket
+#      Properties:
+#        BucketName: my-new-bucket
+#  Outputs:
+#     NewOutput:
+#       Description: "Description for the output"
+#       Value: "Some output value"
+
+resources:
+  Resources:
+    RepositoriesDynamoDbTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: CMISRepositories
+        AttributeDefinitions:
+          - AttributeName: repositoryId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: repositoryId
+            KeyType: HASH
+        ProvisionedThroughput:
+          ReadCapacityUnits: 5
+          WriteCapacityUnits: 5
+    RepositoriesDynamoDBIamPolicy:
+      Type: AWS::IAM::Policy
+      DependsOn: RepositoriesDynamoDbTable
+      Properties:
+        PolicyName: lambda-dynamodb-repositories
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:GetItem
+                - dynamodb:PutItem
+              Resource: arn:aws:dynamodb:*:*:table/CMISRepositories
+        Roles:
+          - Ref: IamRoleLambdaExecution
+    TypesDynamoDbTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: CMISTypes
+        AttributeDefinitions:
+          - AttributeName: typeId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: typeId
+            KeyType: HASH
+        ProvisionedThroughput:
+          ReadCapacityUnits: 5
+          WriteCapacityUnits: 5
+    TypesDynamoDBIamPolicy:
+      Type: AWS::IAM::Policy
+      DependsOn: TypesDynamoDbTable
+      Properties:
+        PolicyName: lambda-dynamodb-types
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:GetItem
+                - dynamodb:PutItem
+              Resource: arn:aws:dynamodb:*:*:table/CMISTypes
+        Roles:
+          - Ref: IamRoleLambdaExecution
+    ObjectsDynamoDbTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: CMISObjects
+        AttributeDefinitions:
+          - AttributeName: cmis:objectId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: cmis:objectId
+            KeyType: HASH
+        ProvisionedThroughput:
+          ReadCapacityUnits: 5
+          WriteCapacityUnits: 5
+    ObjectsDynamoDBIamPolicy:
+      Type: AWS::IAM::Policy
+      DependsOn: ObjectsDynamoDbTable
+      Properties:
+        PolicyName: lambda-dynamodb-objects
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:GetItem
+                - dynamodb:PutItem
+              Resource: arn:aws:dynamodb:*:*:table/CMISObjects
+        Roles:
+          - Ref: IamRoleLambdaExecution

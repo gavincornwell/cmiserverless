@@ -1,0 +1,398 @@
+{
+	"variables": [],
+	"info": {
+		"name": "CMISServerless",
+		"_postman_id": "a483a564-b927-91a2-2173-98110c4435de",
+		"description": "",
+		"schema": "https://schema.getpostman.com/json/collection/v2.0.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Bootstrap",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"type": "text/javascript",
+						"exec": "tests[\"status code is 200\"] = responseCode.code === 200;\n\ntests[\"body has string\"] = responseBody.has(\"successful\");"
+					}
+				}
+			],
+			"request": {
+				"url": "{{host}}{{stage}}/bootstrap",
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"description": ""
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{}"
+				},
+				"description": ""
+			},
+			"response": []
+		},
+		{
+			"name": "Get repositories",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"type": "text/javascript",
+						"exec": "tests[\"status code is 200\"] = responseCode.code === 200;\n\n// test response data\nvar jsonData = JSON.parse(responseBody);\nvar defaultObject = jsonData.default;\nvar capabilitiesObject = defaultObject.capabilities;\nvar baseUrl = postman.getEnvironmentVariable(\"host\") + postman.getEnvironmentVariable(\"stage\");\nvar repoUrl = baseUrl + \"/default\";\nvar rootUrl = repoUrl + \"/object\";\n\ntests[\"default object is present\"] = defaultObject !== undefined;\ntests[\"repositoryId is 'default'\"] = defaultObject.repositoryId === \"default\";\ntests[\"productName is 'CMIServerless'\"] = defaultObject.productName === \"CMIServerless\";\ntests[\"productVersion is '0.1'\"] = defaultObject.productVersion === \"0.1\";\ntests[\"cmisVersionSupported is '1.1'\"] = defaultObject.cmisVersionSupported === \"1.1\";\ntests[\"repositoryUrl is correct\"] = defaultObject.repositoryUrl === repoUrl;\ntests[\"rootFolderUrl is correct\"] = defaultObject.rootFolderUrl === rootUrl;\ntests[\"capabilityQuery is 'none'\"] = capabilitiesObject.capabilityQuery === \"none\";\ntests[\"capabilityGetFolderTree is 'false'\"] = capabilitiesObject.capabilityGetFolderTree === false;\n\n// store the root folder id \nvar rootFolderId = defaultObject.rootFolderId;\npostman.setGlobalVariable(\"rootFolderId\", rootFolderId);\n"
+					}
+				}
+			],
+			"request": {
+				"url": "{{host}}{{stage}}",
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "formdata",
+					"formdata": []
+				},
+				"description": ""
+			},
+			"response": []
+		},
+		{
+			"name": "Get root folder",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"type": "text/javascript",
+						"exec": "tests[\"status code is 200\"] = responseCode.code === 200;\n\n// test response data\nvar jsonData = JSON.parse(responseBody);\nvar propertiesObject = jsonData.properties;\n\ntests[\"properties object is present\"] = propertiesObject !== undefined;\n\nvar objectIdObject = propertiesObject[\"cmis:objectId\"];\ntests[\"cmis:objectId object is present\"] = objectIdObject !== undefined;\ntests[\"cmis:objectId id is 'cmis:objectId'\"] = objectIdObject.id === \"cmis:objectId\";\ntests[\"cmis:objectId localName is 'objectId'\"] = objectIdObject.localName === \"objectId\";\ntests[\"cmis:objectId displayName is 'Object Id'\"] = objectIdObject.displayName === \"Object Id\";\ntests[\"cmis:objectId queryName is 'cmis:objectId'\"] = objectIdObject.queryName === \"cmis:objectId\";\ntests[\"cmis:objectId type is 'id'\"] = objectIdObject.type === \"id\";\ntests[\"cmis:objectId cardinality is 'single'\"] = objectIdObject.cardinality === \"single\";\ntests[\"cmis:objectId value is '\" + postman.getGlobalVariable(\"rootFolderId\") + \"'\"] = objectIdObject.value === postman.getGlobalVariable(\"rootFolderId\");\n\ntests[\"cmis:description object is present\"] = propertiesObject[\"cmis:description\"] !== undefined;\ntests[\"cmis:description value is 'Root Folder'\"] = propertiesObject[\"cmis:description\"].value === \"Root Folder\";\n\ntests[\"cmis:baseTypeId object is present\"] = propertiesObject[\"cmis:baseTypeId\"] !== undefined;\ntests[\"cmis:baseTypeId value is 'cmis:folder'\"] = propertiesObject[\"cmis:baseTypeId\"].value === \"cmis:folder\";\n\nvar now = new Date().getTime();\ntests[\"cmis:lastModificationDate object is present\"] = propertiesObject[\"cmis:lastModificationDate\"] !== undefined;\ntests[\"cmis:lastModificationDate value is less than now\"] = propertiesObject[\"cmis:lastModificationDate\"].value < now;\n\ntests[\"cmis:creationDate object is present\"] = propertiesObject[\"cmis:creationDate\"] !== undefined;\ntests[\"cmis:creationDate value is less than now\"] = propertiesObject[\"cmis:creationDate\"].value < now;\n\ntests[\"cmis:createdBy object is present\"] = propertiesObject[\"cmis:createdBy\"] !== undefined;\ntests[\"cmis:createdBy value is 'system'\"] = propertiesObject[\"cmis:createdBy\"].value === \"system\";\n\ntests[\"cmis:lastModifiedBy object is present\"] = propertiesObject[\"cmis:lastModifiedBy\"] !== undefined;\ntests[\"cmis:lastModifiedBy value is 'system'\"] = propertiesObject[\"cmis:lastModifiedBy\"].value === \"system\";\n\ntests[\"cmis:objectTypeId object is present\"] = propertiesObject[\"cmis:objectTypeId\"] !== undefined;\ntests[\"cmis:objectTypeId value is 'cmis:folder'\"] = propertiesObject[\"cmis:objectTypeId\"].value === \"cmis:folder\";\n\ntests[\"cmis:name object is present\"] = propertiesObject[\"cmis:name\"] !== undefined;\ntests[\"cmis:name value is 'Root Folder'\"] = propertiesObject[\"cmis:name\"].value === \"Root Folder\";\n\ntests[\"cmis:parentId object is present\"] = propertiesObject[\"cmis:parentId\"] !== undefined;\ntests[\"cmis:parentId value is undefined\"] = propertiesObject[\"cmis:parentId\"].value === undefined;\n\ntests[\"cmis:path object is present\"] = propertiesObject[\"cmis:path\"] !== undefined;\ntests[\"cmis:path value is '/'\"] = propertiesObject[\"cmis:path\"].value === \"/\";\n"
+					}
+				}
+			],
+			"request": {
+				"url": "{{host}}{{stage}}/default/object?objectId={{rootFolderId}}&cmisselector=object",
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "formdata",
+					"formdata": []
+				},
+				"description": ""
+			},
+			"response": []
+		},
+		{
+			"name": "Get object (succinct)",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"type": "text/javascript",
+						"exec": "tests[\"status code is 200\"] = responseCode.code === 200;\n\n// test response data\nvar jsonData = JSON.parse(responseBody);\nvar succinctPropertiesObject = jsonData.succinctProperties;\n\ntests[\"succinctProperties object is present\"] = succinctPropertiesObject !== undefined;\n\nvar objectIdObject = succinctPropertiesObject[\"cmis:objectId\"];\ntests[\"cmis:objectId object is present\"] = objectIdObject !== undefined;\n\ntests[\"cmis:objectId value is '\" + postman.getGlobalVariable(\"rootFolderId\") + \"'\"] = succinctPropertiesObject[\"cmis:objectId\"] === postman.getGlobalVariable(\"rootFolderId\");\n\ntests[\"cmis:description value is 'Root Folder'\"] = succinctPropertiesObject[\"cmis:description\"] === \"Root Folder\";\n\ntests[\"cmis:baseTypeId value is 'cmis:folder'\"] = succinctPropertiesObject[\"cmis:baseTypeId\"] === \"cmis:folder\";\n\nvar now = new Date().getTime();\ntests[\"cmis:lastModificationDate value is less than now\"] = succinctPropertiesObject[\"cmis:lastModificationDate\"] < now;\n\ntests[\"cmis:creationDate value is less than now\"] = succinctPropertiesObject[\"cmis:creationDate\"] < now;\n\ntests[\"cmis:createdBy value is 'system'\"] = succinctPropertiesObject[\"cmis:createdBy\"] === \"system\";\n\ntests[\"cmis:lastModifiedBy value is 'system'\"] = succinctPropertiesObject[\"cmis:lastModifiedBy\"] === \"system\";\n\ntests[\"cmis:objectTypeId value is 'cmis:folder'\"] = succinctPropertiesObject[\"cmis:objectTypeId\"] === \"cmis:folder\";\n\ntests[\"cmis:name value is 'Root Folder'\"] = succinctPropertiesObject[\"cmis:name\"] === \"Root Folder\";\n\ntests[\"cmis:path value is '/'\"] = succinctPropertiesObject[\"cmis:path\"] === \"/\";\n"
+					}
+				}
+			],
+			"request": {
+				"url": "{{host}}{{stage}}/default/object?objectId={{rootFolderId}}&cmisselector=object&succinct=true",
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "formdata",
+					"formdata": []
+				},
+				"description": ""
+			},
+			"response": []
+		},
+		{
+			"name": "Get object (allowableActions)",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"type": "text/javascript",
+						"exec": "tests[\"status code is 200\"] = responseCode.code === 200;\n\n// test response data\nvar jsonData = JSON.parse(responseBody);\n\n// test succinct properties\nvar succinctPropertiesObject = jsonData.succinctProperties;\ntests[\"succinctProperties object is present\"] = succinctPropertiesObject !== undefined;\n\nvar objectIdObject = succinctPropertiesObject[\"cmis:objectId\"];\ntests[\"cmis:objectId object is present\"] = objectIdObject !== undefined;\n\ntests[\"cmis:objectId value is '\" + postman.getGlobalVariable(\"rootFolderId\") + \"'\"] = succinctPropertiesObject[\"cmis:objectId\"] === postman.getGlobalVariable(\"rootFolderId\");\n\ntests[\"cmis:description value is 'Root Folder'\"] = succinctPropertiesObject[\"cmis:description\"] === \"Root Folder\";\n\ntests[\"cmis:baseTypeId value is 'cmis:folder'\"] = succinctPropertiesObject[\"cmis:baseTypeId\"] === \"cmis:folder\";\n\nvar now = new Date().getTime();\ntests[\"cmis:lastModificationDate value is less than now\"] = succinctPropertiesObject[\"cmis:lastModificationDate\"] < now;\n\ntests[\"cmis:creationDate value is less than now\"] = succinctPropertiesObject[\"cmis:creationDate\"] < now;\n\ntests[\"cmis:createdBy value is 'system'\"] = succinctPropertiesObject[\"cmis:createdBy\"] === \"system\";\n\ntests[\"cmis:lastModifiedBy value is 'system'\"] = succinctPropertiesObject[\"cmis:lastModifiedBy\"] === \"system\";\n\ntests[\"cmis:objectTypeId value is 'cmis:folder'\"] = succinctPropertiesObject[\"cmis:objectTypeId\"] === \"cmis:folder\";\n\ntests[\"cmis:name value is 'Root Folder'\"] = succinctPropertiesObject[\"cmis:name\"] === \"Root Folder\";\n\ntests[\"cmis:path value is '/'\"] = succinctPropertiesObject[\"cmis:path\"] === \"/\";\n\n// test allowable actions\nvar actionsObject = jsonData.allowableActions;\ntests[\"allowableActions object is present\"] = actionsObject !== undefined;\n\ntests[\"canDeleteObject is 'false'\"] = !actionsObject.canDeleteObject;\ntests[\"canUpdateProperties is 'false'\"] = !actionsObject.canUpdateProperties;\ntests[\"canGetFolderTree is 'false'\"] = !actionsObject.canGetFolderTree;\ntests[\"canGetProperties is 'true'\"] = actionsObject.canGetProperties;\ntests[\"canGetObjectRelationships is 'false'\"] = !actionsObject.canGetObjectRelationships;\ntests[\"canGetObjectParents is 'false'\"] = !actionsObject.canGetObjectParents;\ntests[\"canGetFolderParent is 'false'\"] = !actionsObject.canGetFolderParent;\ntests[\"canGetDescendants is 'false'\"] = !actionsObject.canGetDescendants;\ntests[\"canMoveObject is 'false'\"] = !actionsObject.canMoveObject;\ntests[\"canDeleteContentStream is 'false'\"] = !actionsObject.canDeleteContentStream;\ntests[\"canCheckOut is 'false'\"] = !actionsObject.canCheckOut;\ntests[\"canCancelCheckOut is 'false'\"] = !actionsObject.canCancelCheckOut;\ntests[\"canCheckIn is 'false'\"] = !actionsObject.canCheckIn;\ntests[\"canSetContentStream is 'false'\"] = !actionsObject.canSetContentStream;\ntests[\"canGetAllVersions is 'false'\"] = !actionsObject.canGetAllVersions;\ntests[\"canAddObjectToFolder is 'false'\"] = !actionsObject.canAddObjectToFolder;\ntests[\"canRemoveObjectFromFolder is 'false'\"] = !actionsObject.canRemoveObjectFromFolder;\ntests[\"canGetContentStream is 'true'\"] = actionsObject.canGetContentStream;\ntests[\"canApplyPolicy is 'false'\"] = !actionsObject.canApplyPolicy;\ntests[\"canGetAppliedPolicies is 'false'\"] = !actionsObject.canGetAppliedPolicies;\ntests[\"canRemovePolicy is 'false'\"] = !actionsObject.canRemovePolicy;\ntests[\"canGetChildren is 'true'\"] = actionsObject.canGetChildren;\ntests[\"canCreateDocument is 'false'\"] = !actionsObject.canCreateDocument;\ntests[\"canCreateFolder is 'true'\"] = actionsObject.canCreateFolder;\ntests[\"canCreateRelationship is 'false'\"] = !actionsObject.canCreateRelationship;\ntests[\"canCreateItem is 'false'\"] = !actionsObject.canCreateItem;\ntests[\"canDeleteTree is 'false'\"] = !actionsObject.canDeleteTree;\ntests[\"canGetRenditions is 'false'\"] = !actionsObject.canGetRenditions;\ntests[\"canGetACL is 'false'\"] = !actionsObject.canGetACL;\ntests[\"canApplyACL is 'false'\"] = !actionsObject.canApplyACL;\n\n\n\n"
+					}
+				}
+			],
+			"request": {
+				"url": "{{host}}{{stage}}/default/object?objectId={{rootFolderId}}&cmisselector=object&succinct=true&includeAllowableActions=true",
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "formdata",
+					"formdata": []
+				},
+				"description": ""
+			},
+			"response": []
+		},
+		{
+			"name": "Get a type definition",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"type": "text/javascript",
+						"exec": "tests[\"status code is 200\"] = responseCode.code === 200;\n\n// test response data\nvar jsonData = JSON.parse(responseBody);\n\n// test type data\ntests[\"localName is 'cmis:folder'\"] = jsonData.localName === \"cmis:folder\";\ntests[\"localNamespace is 'http://apache.org'\"] = jsonData.localNamespace === \"http://apache.org\";\ntests[\"baseId is 'cmis:folder'\"] = jsonData.baseId === \"cmis:folder\";\ntests[\"displayName is 'Folder'\"] = jsonData.displayName === \"Folder\";\ntests[\"description is 'Folder'\"] = jsonData.description === \"Folder\";\ntests[\"typeId is 'cmis:folder'\"] = jsonData.typeId === \"cmis:folder\";\ntests[\"controllableACL is 'true'\"] = jsonData.controllableACL;\ntests[\"fileable is 'true'\"] = jsonData.fileable;\ntests[\"includedInSupertypeQuery is 'true'\"] = jsonData.includedInSupertypeQuery;\ntests[\"fulltextIndexed is 'false'\"] = !jsonData.fulltextIndexed;\ntests[\"creatable is 'true'\"] = jsonData.creatable;\ntests[\"controllablePolicy is 'true'\"] = jsonData.controllablePolicy;\ntests[\"queryable is 'true'\"] = jsonData.queryable;\ntests[\"queryName is 'cmis:folder'\"] = jsonData.queryName === \"cmis:folder\";\ntests[\"id is 'cmis:folder'\"] = jsonData.id === \"cmis:folder\";\n\n// test type mutability\nvar typeMutabilityObject = jsonData.typeMutability;\ntests[\"typeMutability object is present\"] = typeMutabilityObject !== undefined;\ntests[\"typeMutability update is 'false'\"] = !typeMutabilityObject.update;\ntests[\"typeMutability delete is 'false'\"] = !typeMutabilityObject.delete;\ntests[\"typeMutability create is 'true'\"] = typeMutabilityObject.create;\n\n// test property definitions\nvar propertyDefsObject = jsonData.propertyDefinitions;\ntests[\"propertyDefinitions object is present\"] = propertyDefsObject !== undefined;\n\nvar objectIdObject = propertyDefsObject[\"cmis:objectId\"];\ntests[\"cmis:objectId object is present\"] = objectIdObject !== undefined;\ntests[\"cmis:objectId id is 'cmis:objectId'\"] = objectIdObject.id === \"cmis:objectId\";\ntests[\"cmis:objectId orderable is 'false'\"] = !objectIdObject.oderable;\n// TODO: fix this on the server\ntests[\"cmis:objectId localName is 'cmis:objectId'\"] = objectIdObject.localName === \"cmis:objectId\";\ntests[\"cmis:objectId propertyType is 'id'\"] = objectIdObject.propertyType === \"id\";\ntests[\"cmis:objectId queryName is 'cmis:objectId'\"] = objectIdObject.queryName === \"cmis:objectId\";\ntests[\"cmis:objectId updatability is 'readonly'\"] = objectIdObject.updatability === \"readonly\";\ntests[\"cmis:objectId description is 'Object Id'\"] = objectIdObject.description === \"Object Id\";\ntests[\"cmis:objectId inherited is 'false'\"] = !objectIdObject.inherited;\ntests[\"cmis:objectId required is 'false'\"] = !objectIdObject.required;\ntests[\"cmis:objectId displayName is 'Object Id'\"] = objectIdObject.displayName === \"Object Id\";\ntests[\"cmis:objectId cardinality is 'single'\"] = objectIdObject.cardinality === \"single\";\n// TODO: fix this on the server\ntests[\"cmis:objectId queryable is 'true'\"] = objectIdObject.queryable;\n\n// test presence of other properties\ntests[\"cmis:allowedChildObjectTypeIds object is present\"] = propertyDefsObject[\"cmis:allowedChildObjectTypeIds\"] !== undefined;\ntests[\"cmis:path object is present\"] = propertyDefsObject[\"cmis:path\"] !== undefined;\ntests[\"cmis:objectTypeId object is present\"] = propertyDefsObject[\"cmis:objectTypeId\"] !== undefined;\ntests[\"cmis:name object is present\"] = propertyDefsObject[\"cmis:name\"] !== undefined;\ntests[\"cmis:creationDate object is present\"] = propertyDefsObject[\"cmis:creationDate\"] !== undefined;\ntests[\"cmis:secondaryObjectTypeIds object is present\"] = propertyDefsObject[\"cmis:secondaryObjectTypeIds\"] !== undefined;\ntests[\"cmis:changeToken object is present\"] = propertyDefsObject[\"cmis:changeToken\"] !== undefined;\ntests[\"cmis:lastModifiedBy object is present\"] = propertyDefsObject[\"cmis:lastModifiedBy\"] !== undefined;\ntests[\"cmis:createdBy object is present\"] = propertyDefsObject[\"cmis:createdBy\"] !== undefined;\ntests[\"cmis:baseTypeId object is present\"] = propertyDefsObject[\"cmis:baseTypeId\"] !== undefined;\ntests[\"cmis:description object is present\"] = propertyDefsObject[\"cmis:description\"] !== undefined;\ntests[\"cmis:lastModificationDate object is present\"] = propertyDefsObject[\"cmis:lastModificationDate\"] !== undefined;\ntests[\"cmis:parentId object is present\"] = propertyDefsObject[\"cmis:parentId\"] !== undefined;\n\n\n"
+					}
+				}
+			],
+			"request": {
+				"url": "{{host}}{{stage}}/default?cmisselector=typeDefinition&typeId=cmis:folder",
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "formdata",
+					"formdata": []
+				},
+				"description": ""
+			},
+			"response": []
+		},
+		{
+			"name": "Get type descendants",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"type": "text/javascript",
+						"exec": "tests[\"status code is 200\"] = responseCode.code === 200;\n\n// test response data\nvar jsonData = JSON.parse(responseBody);\ntests[\"empty array is present\"] = jsonData.length === 0;"
+					}
+				}
+			],
+			"request": {
+				"url": "{{host}}{{stage}}/default?cmisselector=typeDescendants&typeId=cmis:folder",
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "formdata",
+					"formdata": []
+				},
+				"description": ""
+			},
+			"response": []
+		},
+		{
+			"name": "Get children",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"type": "text/javascript",
+						"exec": "tests[\"status code is 200\"] = responseCode.code === 200;\n\n// test response data\nvar jsonData = JSON.parse(responseBody);\n\n// test objects array\nvar objectsArray = jsonData.objects;\ntests[\"objects array is present\"] = objectsArray !== undefined;\ntests[\"objects array is not empty\"] = objectsArray.length > 0;\n\n// test the first array entry\nvar firstEntry = objectsArray[0];\ntests[\"firstEntry is present\"] = firstEntry !== undefined;\n\n// test succinctProperties\nvar succinctPropertiesObject = firstEntry.object.succinctProperties;\ntests[\"succinctProperties object is present\"] = succinctPropertiesObject !== undefined;\ntests[\"cmis:objectId is present\"] = succinctPropertiesObject[\"cmis:objectId\"] !== undefined;\ntests[\"cmis:baseTypeId is present\"] = succinctPropertiesObject[\"cmis:objectId\"] !== undefined;\ntests[\"cmis:lastModificationDate is present\"] = succinctPropertiesObject[\"cmis:lastModificationDate\"] !== undefined;\ntests[\"cmis:creationDate is present\"] = succinctPropertiesObject[\"cmis:creationDate\"] !== undefined;\ntests[\"cmis:createdBy is present\"] = succinctPropertiesObject[\"cmis:createdBy\"] !== undefined;\ntests[\"cmis:parentId is present\"] = succinctPropertiesObject[\"cmis:parentId\"] !== undefined;\ntests[\"cmis:lastModifiedBy is present\"] = succinctPropertiesObject[\"cmis:lastModifiedBy\"] !== undefined;\ntests[\"cmis:name is present\"] = succinctPropertiesObject[\"cmis:name\"] !== undefined;\ntests[\"cmis:objectTypeId is present\"] = succinctPropertiesObject[\"cmis:objectTypeId\"] !== undefined;\n\nif (succinctPropertiesObject[\"cmis:baseTypeId\"] === \"cmis:folder\") {\n    tests[\"cmis:path is present\"] = succinctPropertiesObject[\"cmis:path\"] !== undefined;\n}"
+					}
+				}
+			],
+			"request": {
+				"url": "{{host}}{{stage}}/default/object?objectId={{rootFolderId}}&cmisselector=children&succinct=true",
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "formdata",
+					"formdata": []
+				},
+				"description": ""
+			},
+			"response": []
+		},
+		{
+			"name": "Create folder",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"type": "text/javascript",
+						"exec": "tests[\"status code is 201\"] = responseCode.code === 201;\n\n// test response data\nvar jsonData = JSON.parse(responseBody);\nvar succinctPropertiesObject = jsonData.succinctProperties;\n\ntests[\"succinctProperties object is present\"] = succinctPropertiesObject !== undefined;\n\nvar objectIdObject = succinctPropertiesObject[\"cmis:objectId\"];\ntests[\"cmis:objectId object is present\"] = objectIdObject !== undefined;\n\nvar nameObject = succinctPropertiesObject[\"cmis:name\"];\ntests[\"cmis:name object is present\"] = nameObject !== undefined;\n\ntests[\"cmis:description value is 'Folder created with Postman'\"] = succinctPropertiesObject[\"cmis:description\"] === \"Folder created with Postman\";\n\ntests[\"cmis:baseTypeId value is 'cmis:folder'\"] = succinctPropertiesObject[\"cmis:baseTypeId\"] === \"cmis:folder\";\n\nvar now = new Date().getTime();\ntests[\"cmis:lastModificationDate value is less than now\"] = succinctPropertiesObject[\"cmis:lastModificationDate\"] < now;\n\ntests[\"cmis:creationDate value is less than now\"] = succinctPropertiesObject[\"cmis:creationDate\"] < now;\n\ntests[\"cmis:createdBy value is 'system'\"] = succinctPropertiesObject[\"cmis:createdBy\"] === \"system\";\n\ntests[\"cmis:lastModifiedBy value is 'system'\"] = succinctPropertiesObject[\"cmis:lastModifiedBy\"] === \"system\";\n\ntests[\"cmis:objectTypeId value is 'cmis:folder'\"] = succinctPropertiesObject[\"cmis:objectTypeId\"] === \"cmis:folder\";\n\ntests[\"cmis:path value is '/<guid>'\"] = succinctPropertiesObject[\"cmis:path\"] === \"/\" + nameObject;\n"
+					}
+				}
+			],
+			"request": {
+				"url": "{{host}}{{stage}}/default/object?objectId={{rootFolderId}}",
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "urlencoded",
+					"urlencoded": [
+						{
+							"key": "cmisaction",
+							"value": "createFolder",
+							"type": "text",
+							"enabled": true
+						},
+						{
+							"key": "propertyId[0]",
+							"value": "cmis:name",
+							"type": "text",
+							"enabled": true
+						},
+						{
+							"key": "propertyValue[0]",
+							"value": "{{$guid}}",
+							"type": "text",
+							"enabled": true
+						},
+						{
+							"key": "propertyId[1]",
+							"value": "cmis:objectTypeId",
+							"type": "text",
+							"enabled": true
+						},
+						{
+							"key": "propertyValue[1]",
+							"value": "cmis:folder",
+							"type": "text",
+							"enabled": true
+						},
+						{
+							"key": "propertyId[2]",
+							"value": "cmis:description",
+							"type": "text",
+							"enabled": true
+						},
+						{
+							"key": "propertyValue[2]",
+							"value": "Folder created with Postman",
+							"type": "text",
+							"enabled": true
+						},
+						{
+							"key": "succinct",
+							"value": "true",
+							"type": "text",
+							"enabled": true
+						},
+						{
+							"key": "",
+							"value": "",
+							"type": "text",
+							"enabled": true
+						}
+					]
+				},
+				"description": ""
+			},
+			"response": []
+		},
+		{
+			"name": "Create document (custom)",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"type": "text/javascript",
+						"exec": "tests[\"status code is 201\"] = responseCode.code === 201;\n\n// test response data\nvar jsonData = JSON.parse(responseBody);\nvar succinctPropertiesObject = jsonData.succinctProperties;\n\ntests[\"succinctProperties object is present\"] = succinctPropertiesObject !== undefined;\n\nvar objectIdObject = succinctPropertiesObject[\"cmis:objectId\"];\ntests[\"cmis:objectId object is present\"] = objectIdObject !== undefined;\n\nvar nameObject = succinctPropertiesObject[\"cmis:name\"];\ntests[\"cmis:name object is present\"] = nameObject !== undefined;\n\nvar streamIdObject = succinctPropertiesObject[\"cmis:contentStreamId\"];\ntests[\"cmis:contentStreamId object is present\"] = streamIdObject !== undefined;\n\nvar streamFileName = succinctPropertiesObject[\"cmis:contentStreamFileName\"];\ntests[\"cmis:contentStreamFileName object is present\"] = streamFileName !== undefined;\n\ntests[\"cmis:description value is 'Document created with Postman'\"] = succinctPropertiesObject[\"cmis:description\"] === \"Document created with Postman\";\n\ntests[\"cmis:baseTypeId value is 'cmis:document'\"] = succinctPropertiesObject[\"cmis:baseTypeId\"] === \"cmis:document\";\n\nvar now = new Date().getTime();\ntests[\"cmis:lastModificationDate value is less than now\"] = succinctPropertiesObject[\"cmis:lastModificationDate\"] < now;\n\ntests[\"cmis:creationDate value is less than now\"] = succinctPropertiesObject[\"cmis:creationDate\"] < now;\n\ntests[\"cmis:createdBy value is 'system'\"] = succinctPropertiesObject[\"cmis:createdBy\"] === \"system\";\n\ntests[\"cmis:lastModifiedBy value is 'system'\"] = succinctPropertiesObject[\"cmis:lastModifiedBy\"] === \"system\";\n\ntests[\"cmis:objectTypeId value is 'cmis:document'\"] = succinctPropertiesObject[\"cmis:objectTypeId\"] === \"cmis:document\";\n\ntests[\"cmis:contentStreamMimeType value is 'text/plain'\"] = succinctPropertiesObject[\"cmis:contentStreamMimeType\"] === \"text/plain\";\n\ntests[\"cmis:contentStreamLength value is '20'\"] = succinctPropertiesObject[\"cmis:contentStreamLength\"] === 20;\n\n// store the document id \npostman.setGlobalVariable(\"documentId\", objectIdObject);"
+					}
+				}
+			],
+			"request": {
+				"url": "{{host}}{{stage}}/default/object?objectId={{rootFolderId}}",
+				"method": "POST",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Basic dGVzdDp0ZXN0",
+						"description": ""
+					}
+				],
+				"body": {
+					"mode": "urlencoded",
+					"urlencoded": [
+						{
+							"key": "cmisaction",
+							"value": "createDocument",
+							"type": "text",
+							"enabled": true
+						},
+						{
+							"key": "propertyId[0]",
+							"value": "cmis:name",
+							"type": "text",
+							"enabled": true
+						},
+						{
+							"key": "propertyValue[0]",
+							"value": "{{$guid}}.txt",
+							"type": "text",
+							"enabled": true
+						},
+						{
+							"key": "propertyId[1]",
+							"value": "cmis:objectTypeId",
+							"type": "text",
+							"enabled": true
+						},
+						{
+							"key": "propertyValue[1]",
+							"value": "cmis:document",
+							"type": "text",
+							"enabled": true
+						},
+						{
+							"key": "propertyId[2]",
+							"value": "cmis:description",
+							"type": "text",
+							"enabled": true
+						},
+						{
+							"key": "propertyValue[2]",
+							"value": "Document created with Postman",
+							"type": "text",
+							"enabled": true
+						},
+						{
+							"key": "content",
+							"value": "This is some content",
+							"type": "text",
+							"enabled": true
+						},
+						{
+							"key": "mimeType",
+							"value": "text/plain",
+							"type": "text",
+							"enabled": true
+						},
+						{
+							"key": "succinct",
+							"value": "true",
+							"type": "text",
+							"enabled": true
+						},
+						{
+							"key": "",
+							"value": "",
+							"type": "text",
+							"enabled": true
+						}
+					]
+				},
+				"description": ""
+			},
+			"response": []
+		},
+		{
+			"name": "Get content",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"type": "text/javascript",
+						"exec": "tests[\"status code is 200\"] = responseCode.code === 200;\n\ntests[\"body matches string\"] = responseBody.has(\"This is some content\");"
+					}
+				}
+			],
+			"request": {
+				"url": "{{host}}{{stage}}/default/object?objectId={{documentId}}&cmisselector=content",
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "formdata",
+					"formdata": []
+				},
+				"description": ""
+			},
+			"response": []
+		}
+	]
+}

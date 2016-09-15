@@ -1,3 +1,14 @@
+# Mac
+.DS_Store
+
+# Intellij
+.idea/
+*.iml
+*.iws
+
+# Serverless
+.serverless
+
 # Logs
 logs
 *.log
