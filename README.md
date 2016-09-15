@@ -7,7 +7,6 @@ This project implements a CMIS 1.1 compliant server on AWS using a serverless ar
 * [Serverless](https://serverless.com/framework/docs/guide/) installed globally
 
 ## Setup
-    npm install serverless -g
     npm install node-uuid
     serverless deploy --verbose
     curl -X POST -H "Content-Type: application/json" -d '{}' "https://<apiId>.execute-api.<region>.amazonaws.com/dev/bootstrap"
