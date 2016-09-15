@@ -15,7 +15,7 @@ Replace **apiId** with the ID API Gateway generates for you and replace **region
 
 ## Running Tests
 
-To run the tests DyanmoDB is required, follow the instructions to download and run it locally.
+To run the tests DyanmoDB is required, follow the [instructions](http://docs.aws.amazon.com/amazondynamodb/latest/developerguide/DynamoDBLocal.html) to download and run it locally.
 
 Once DynamoDB is running do the following:
 
