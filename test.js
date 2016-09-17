@@ -8,8 +8,12 @@ AWS.config.update({
 });
 
 let cmisBootstrapService = require('./cmis-bootstrap-service.js');
+let cmisRepositoriesService = require('./cmis-repositories-service.js');
+let cmisRepositoryService = require('./cmis-repository-service.js');
 let doc = require('dynamodb-doc');
 let dynamodb = new doc.DynamoDB();
+
+let context = {};
 
 /**
  * Setup test environment, create tables and add repository, if necessary
@@ -79,14 +83,15 @@ exports.setup = function(callback) {
                   } else {
 
                     // call the CMIS bootstrap service
-                    cmisBootstrapService.handler({
-                        "repositoryId": "default",
-                        "baseUrl": "https://abcdef.api-gateway.amazon.com/dev"
-                      }, {}, function(error, result) {
+                    var event = {
+                      "repositoryId": "default",
+                      "baseUrl": "https://abcdef.api-gateway.amazon.com/dev"
+                    };
+                    cmisBootstrapService.handler(event, context, function(error, result) {
                       if (error) {
                         callback(error);
                       } else {
-                        callback(null, "Bootstrap completed successfully");
+                        callback(null, "Setup completed successfully");
                       }
                     });
                   }
@@ -108,7 +113,38 @@ exports.setup((error, result) => {
   if (error) {
     console.error("Test setup failed: " + JSON.stringify(error, null, 2));
   } else {
+
     // run the tests
     console.log("Running tests...");
+
+    // get all repositories
+    cmisRepositoriesService.handler({}, context, function(error, result) {
+      if (error) {
+        console.error("Failed to retrieve repositories: " + JSON.stringify(error, null, 2));
+      } else {
+
+        // ensure there's a repository with an id of "default"
+        if (!result.default) throw "TEST FAILED: default repository is missing";
+
+        // get the cmis:folder type definition for the default repository
+        var event = {
+          "cmisselector": "typeDefinition",
+          "repoId": "default",
+          "typeId": "cmis:folder"
+        };
+        cmisRepositoryService.handler(event, context, function(error, result) {
+            if (error) {
+              console.error("Failed to retrieve type definition: " + JSON.stringify(error, null, 2));
+            } else {
+
+                // ensure the correct type definition was returned
+                if (!result.typeId === "cmis:folder") throw "TEST FAILED: incorrect type definition returned";
+                if (!result.displayName === "Folder") throw "TEST FAILED: incorrect type display name returned";
+
+                console.log("Tests Passed!");
+            }
+        });
+      }
+    });
   }
 });

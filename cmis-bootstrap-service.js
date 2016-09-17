@@ -11,7 +11,9 @@ module.exports.handler = (event, context, callback) => {
     if (error) {
       callback(error);
     } else {
-      callback(null, "CMISServerless bootstrap process complete");
+      var msg = "CMISServerless bootstrap process complete";
+      console.log(msg);
+      callback(null, msg);
     }
   });
 };

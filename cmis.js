@@ -10,6 +10,30 @@ let TYPES_TABLE_NAME = "CMISTypes";
 let OBJECTS_TABLE_NAME = "CMISObjects";
 
 /**
+ * Retrieves all repositories from the database
+ */
+exports.getRepositories = function(callback) {
+
+  // check callback is a function
+  if (!callback || callback === null || !(typeof callback == "function") ) {
+    throw "callback is not a function";
+  }
+
+  // scan the repositories table
+  var params = {
+      TableName : REPOSITORIES_TABLE_NAME
+  }
+
+  dynamodb.scan(params, function(error, result) {
+    if (error) {
+      callback(error);
+    } else {
+      callback(null, result.Items);
+    }
+  });
+};
+
+/**
  * Retrieves a repository from the database
  */
 exports.getRepository = function(repoId, callback) {
@@ -33,7 +57,7 @@ exports.getRepository = function(repoId, callback) {
     Key: {
       "repositoryId": repoId
     }
-  }
+  };
 
   dynamodb.getItem(params, function(error, result) {
       if (error) {
@@ -42,7 +66,142 @@ exports.getRepository = function(repoId, callback) {
         callback(null, result.Item);
       }
   });
-}
+};
+
+exports.getTypeDefinition = function(repoId, typeId, callback) {
+
+  // check callback is a function
+  if (!callback || callback === null || !(typeof callback == "function") ) {
+    throw "callback is not a function";
+  }
+
+  // check repoId has been provided
+  if (!repoId || repoId === null) {
+    callback("repoId parameter is mandatory", null);
+    return;
+  }
+
+  // check typeId has been provided
+  if (!typeId || typeId === null) {
+    callback("typeId parameter is mandatory", null);
+    return;
+  }
+
+  console.log("Retrieving type definition with id: " + typeId);
+
+  // retrieve the type definition from the database
+  var params = {
+    TableName : TYPES_TABLE_NAME,
+    Key: {
+      "typeId": typeId
+    }
+  };
+
+  dynamodb.getItem(params, function(error, result) {
+    if (error) {
+      callback(error);
+    } else {
+
+      // replace typeId property with id
+      if (result.Item.typeId !== "")
+      {
+          result.Item.id = result.Item.typeId;
+      }
+
+      callback(null, result.Item);
+    }
+  });
+};
+
+/**
+ * Adds a folder to the database
+ */
+exports.addFolderObject = function(name, description, path, callback) {
+
+  // check callback is a function
+  if (!callback || callback === null || !(typeof callback == "function") ) {
+    throw "callback is not a function";
+  }
+
+  var guid = uuid.v4();
+
+  var folderObject = {
+    "cmis:objectId": guid,
+    "cmis:createdBy": "system",
+    "cmis:creationDate": new Date().getTime(),
+    "cmis:lastModifiedBy": "system",
+    "cmis:lastModificationDate": new Date().getTime(),
+    "cmis:baseTypeId": "cmis:folder",
+    "cmis:objectTypeId": "cmis:folder",
+  }
+
+  if (name) {
+    folderObject["cmis:name"] = name;
+  } else {
+    folderObject["cmis:name"] = guid;
+  }
+
+  if (description) {
+    folderObject["cmis:description"] = description;
+  }
+
+  if (path)
+  {
+    folderObject["cmis:path"] = path;
+  }
+
+  console.log("Adding folder object: " + JSON.stringify(folderObject, null, 2));
+
+  // insert folder into DynamoDB
+  var folderParams = {
+    TableName: OBJECTS_TABLE_NAME,
+    Item: folderObject
+  };
+
+  dynamodb.putItem(folderParams, function(error, result) {
+    if (error) {
+      callback(error);
+    } else {
+      callback(null, folderObject);
+    }
+  });
+};
+
+/**
+ * Adds a type definiton to the database
+ */
+exports.addTypeDefinition = function(typeId, typeDefinition, callback) {
+
+  // check callback is a function
+  if (!callback || callback === null || !(typeof callback == "function") ) {
+    throw "callback is not a function";
+  }
+
+  // check typeId has been provided
+  if (!typeId || typeId === null) {
+    callback("typeId parameter is mandatory", null);
+    return;
+  }
+
+  if (typeDefinition.typeId === undefined) {
+    typeDefinition.typeId = typeId;
+  }
+
+  console.log("Adding type object: " + JSON.stringify(typeDefinition, null, 2));
+
+  var typeParams = {
+    TableName: TYPES_TABLE_NAME,
+    Item: typeDefinition
+  }
+
+  dynamodb.putItem(typeParams, function(error, result) {
+    if (error) {
+      callback(error);
+    } else {
+      callback(null, typeDefinition);
+    }
+  });
+};
 
 /**
  * Adds a repository to the database
@@ -54,11 +213,13 @@ exports.addRepository = function(repoId, baseUrl, callback) {
     throw "callback is not a function";
   }
 
-  // check repoId and baseUrl have been provided
+  // check repoId has been provided
   if (!repoId || repoId === null) {
     callback("repoId parameter is mandatory", null);
     return;
   }
+
+  // check baseUrl has been provided
   if (!baseUrl || baseUrl === null) {
     callback("baseUrl parameter is mandatory", null);
     return;
@@ -762,79 +923,5 @@ exports.addRepository = function(repoId, baseUrl, callback) {
         }
       });
     };
-  });
-};
-
-/**
- * Adds a folder to the database
- */
-exports.addFolderObject = function(name, description, path, callback) {
-
-  var guid = uuid.v4();
-
-  var folderObject = {
-    "cmis:objectId": guid,
-    "cmis:createdBy": "system",
-    "cmis:creationDate": new Date().getTime(),
-    "cmis:lastModifiedBy": "system",
-    "cmis:lastModificationDate": new Date().getTime(),
-    "cmis:baseTypeId": "cmis:folder",
-    "cmis:objectTypeId": "cmis:folder",
-  }
-
-  if (name) {
-    folderObject["cmis:name"] = name;
-  } else {
-    folderObject["cmis:name"] = guid;
-  }
-
-  if (description) {
-    folderObject["cmis:description"] = description;
-  }
-
-  if (path)
-  {
-    folderObject["cmis:path"] = path;
-  }
-
-  console.log("Adding folder object: " + JSON.stringify(folderObject, null, 2));
-
-  // insert folder into DynamoDB
-  var folderParams = {
-    TableName: OBJECTS_TABLE_NAME,
-    Item: folderObject
-  }
-
-  dynamodb.putItem(folderParams, function(error, result) {
-    if (error) {
-      callback(error);
-    } else {
-      callback(null, folderObject);
-    }
-  });
-};
-
-/**
- * Adds a type definiton to the database
- */
-exports.addTypeDefinition = function(typeId, typeDefinition, callback) {
-
-  if (typeDefinition.typeId === undefined) {
-    typeDefinition.typeId = typeId;
-  }
-
-  console.log("Adding type object: " + JSON.stringify(typeDefinition, null, 2));
-
-  var typeParams = {
-    TableName: TYPES_TABLE_NAME,
-    Item: typeDefinition
-  }
-
-  dynamodb.putItem(typeParams, function(error, result) {
-    if (error) {
-      callback(error);
-    } else {
-      callback(null, typeDefinition);
-    }
   });
 };

@@ -29,8 +29,12 @@ package:
   exclude:
     - test.js
     - CMIServerless.iml
+    - postman-collection.json
+    - LICENSE
+    - README.md
     - node_modules/aws-sdk
     - node_modules/dynamodb-doc
+    - .idea
 #  artifact: my-service-code.zip
 
 functions:
@@ -47,6 +51,10 @@ functions:
                                   "repositoryId": "default",
                                   "baseUrl": "https://$context.apiId$host/$context.stage"
                                 }'
+  repositories:
+    handler: cmis-repositories-service.handler
+  repository:
+    handler: cmis-repository-service.handler
 
 #   you can add any of the following events
 #   events:
