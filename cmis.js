@@ -19,6 +19,8 @@ exports.getRepositories = function(callback) {
     throw "callback is not a function";
   }
 
+  console.log("Retrieving all repositories...");
+
   // scan the repositories table
   var params = {
       TableName : REPOSITORIES_TABLE_NAME
@@ -28,6 +30,7 @@ exports.getRepositories = function(callback) {
     if (error) {
       callback(error);
     } else {
+      console.log("Returning result: " + JSON.stringify(result.Items, null, 2));
       callback(null, result.Items);
     }
   });
@@ -49,7 +52,7 @@ exports.getRepository = function(repoId, callback) {
     return;
   }
 
-  console.log("Retrieving repository with id: " + repoId);
+  console.log("Retrieving repository with id '" + repoId + "'...");
 
   // retrieve the type definition from the database
   var params = {
@@ -63,6 +66,7 @@ exports.getRepository = function(repoId, callback) {
       if (error) {
         callback(error);
       } else {
+        console.log("Returning result: " + JSON.stringify(result.Item, null, 2));
         callback(null, result.Item);
       }
   });
@@ -87,7 +91,7 @@ exports.getTypeDefinition = function(repoId, typeId, callback) {
     return;
   }
 
-  console.log("Retrieving type definition with id: " + typeId);
+  console.log("Retrieving type definition with id '" + typeId + "'...");
 
   // retrieve the type definition from the database
   var params = {
@@ -107,10 +111,40 @@ exports.getTypeDefinition = function(repoId, typeId, callback) {
       {
           result.Item.id = result.Item.typeId;
       }
-
+      console.log("Returning result: " + JSON.stringify(result.Item, null, 2));
       callback(null, result.Item);
     }
   });
+};
+
+/**
+ * Retrieves a list of type descendants
+ */
+exports.getTypeDescendants = function(repoId, typeId, callback) {
+
+  // check callback is a function
+  if (!callback || callback === null || !(typeof callback == "function") ) {
+    throw "callback is not a function";
+  }
+
+  // check repoId has been provided
+  if (!repoId || repoId === null) {
+    callback("repoId parameter is mandatory", null);
+    return;
+  }
+
+  // check typeId has been provided
+  if (!typeId || typeId === null) {
+    callback("typeId parameter is mandatory", null);
+    return;
+  }
+
+  console.log("Retrieving type descendants for type '" + typeId + "'...");
+
+  // we don't store these yet so just return an empty array
+  var result = [];
+  console.log("Returning result: " + JSON.stringify(result, null, 2));
+  callback(null, result);
 };
 
 /**
@@ -122,6 +156,9 @@ exports.addFolderObject = function(name, description, path, callback) {
   if (!callback || callback === null || !(typeof callback == "function") ) {
     throw "callback is not a function";
   }
+
+  var parentId = null;
+  console.log("Adding folder object for parent id '" + parentId + "'...");
 
   var guid = uuid.v4();
 
@@ -145,12 +182,13 @@ exports.addFolderObject = function(name, description, path, callback) {
     folderObject["cmis:description"] = description;
   }
 
-  if (path)
-  {
+  if (path) {
     folderObject["cmis:path"] = path;
   }
 
-  console.log("Adding folder object: " + JSON.stringify(folderObject, null, 2));
+  if (parentId) {
+    folderObject["cmis:parentId"] = parentId;
+  }
 
   // insert folder into DynamoDB
   var folderParams = {
@@ -162,6 +200,7 @@ exports.addFolderObject = function(name, description, path, callback) {
     if (error) {
       callback(error);
     } else {
+      console.log("Returning result: " + JSON.stringify(folderObject, null, 2));
       callback(null, folderObject);
     }
   });
@@ -187,7 +226,7 @@ exports.addTypeDefinition = function(typeId, typeDefinition, callback) {
     typeDefinition.typeId = typeId;
   }
 
-  console.log("Adding type object: " + JSON.stringify(typeDefinition, null, 2));
+  console.log("Adding type definition for type '" + typeId + "'...");
 
   var typeParams = {
     TableName: TYPES_TABLE_NAME,
@@ -198,6 +237,7 @@ exports.addTypeDefinition = function(typeId, typeDefinition, callback) {
     if (error) {
       callback(error);
     } else {
+      console.log("Returning result: " + JSON.stringify(typeDefinition, null, 2));
       callback(null, typeDefinition);
     }
   });
@@ -224,6 +264,8 @@ exports.addRepository = function(repoId, baseUrl, callback) {
     callback("baseUrl parameter is mandatory", null);
     return;
   }
+
+  console.log("Adding repository with id '" + repoId + "'...");
 
   // TODO: use conditional put to stop multiple root folders being added
 
@@ -266,8 +308,6 @@ exports.addRepository = function(repoId, baseUrl, callback) {
         rootFolderId: rootFolderId,
         changesIncomplete: false
       }
-
-      console.log("Adding repository object: " + JSON.stringify(repositoryObject, null, 2));
 
       // insert repo into DynamoDB
       var repoParams = {
@@ -915,6 +955,7 @@ exports.addRepository = function(repoId, baseUrl, callback) {
                 if (error) {
                   callback(error);
                 } else {
+                  console.log("Returning result: " + JSON.stringify(repositoryObject, null, 2));
                   callback(null, repositoryObject);
                 }
               });

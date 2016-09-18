@@ -1,7 +1,7 @@
 {
 	"variables": [],
 	"info": {
-		"name": "CMISServerless",
+		"name": "CMIServerless",
 		"_postman_id": "a483a564-b927-91a2-2173-98110c4435de",
 		"description": "",
 		"schema": "https://schema.getpostman.com/json/collection/v2.0.0/collection.json"
@@ -30,7 +30,7 @@
 				],
 				"body": {
 					"mode": "raw",
-					"raw": "{}"
+					"raw": "{\n  \"repositoryId\": \"default\",\n  \"baseUrl\": \"{{host}}{{stage}}\"\n}"
 				},
 				"description": ""
 			},

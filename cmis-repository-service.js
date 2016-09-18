@@ -19,13 +19,10 @@ module.exports.handler = (event, context, callback) => {
   // dispatch to appropriate function
   switch(selector) {
     case "typeDefinition":
-      console.log("Retrieving type definition...");
       cmis.getTypeDefinition(repoId, typeId, callback);
       break;
     case "typeDescendants":
-      console.log("Retrieving type descendants...");
-      // TODO
-      callback(null, []);
+      cmis.getTypeDescendants(repoId, typeId, callback);
       break;
     default:
       callback(new Error("Unrecognised selector: " + selector));

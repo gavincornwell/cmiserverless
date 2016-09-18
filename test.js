@@ -85,7 +85,7 @@ exports.setup = function(callback) {
                     // call the CMIS bootstrap service
                     var event = {
                       "repositoryId": "default",
-                      "baseUrl": "https://abcdef.api-gateway.amazon.com/dev"
+                      "baseUrl": "https://localhost.execute-api.us-east-1.amazonaws.com/dev"
                     };
                     cmisBootstrapService.handler(event, context, function(error, result) {
                       if (error) {
@@ -124,7 +124,7 @@ exports.setup((error, result) => {
       } else {
 
         // ensure there's a repository with an id of "default"
-        if (!result.default) throw "TEST FAILED: default repository is missing";
+        if (!result.default) throw "TEST FAILED: expecting to receive default repository";
 
         // get the cmis:folder type definition for the default repository
         var event = {
@@ -133,16 +133,33 @@ exports.setup((error, result) => {
           "typeId": "cmis:folder"
         };
         cmisRepositoryService.handler(event, context, function(error, result) {
-            if (error) {
-              console.error("Failed to retrieve type definition: " + JSON.stringify(error, null, 2));
-            } else {
+          if (error) {
+            console.error("Failed to retrieve type definition: " + JSON.stringify(error, null, 2));
+          } else {
 
-                // ensure the correct type definition was returned
-                if (!result.typeId === "cmis:folder") throw "TEST FAILED: incorrect type definition returned";
-                if (!result.displayName === "Folder") throw "TEST FAILED: incorrect type display name returned";
+              // ensure the correct type definition was returned
+              if (!result.typeId === "cmis:folder") throw "TEST FAILED: expecting type definition for cmis:folder";
+              if (!result.displayName === "Folder") throw "TEST FAILED: expecting display name of 'Folder'";
 
-                console.log("Tests Passed!");
-            }
+              // get the type descendants for cmis:folder
+              var event = {
+                "cmisselector": "typeDescendants",
+                "repoId": "default",
+                "typeId": "cmis:folder"
+              };
+              cmisRepositoryService.handler(event, context, function(error, result) {
+                if (error) {
+                  console.error("Failed to retrieve type descendants: " + JSON.stringify(error, null, 2));
+                } else {
+
+                  // ensure an empty array is returned
+                  if (result.length != 0) throw "TEST FAILED: expecting an empty array";
+
+                  // if we get this far the tests passed
+                  console.log("Tests Passed!");
+                }
+              });
+          }
         });
       }
     });

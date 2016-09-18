@@ -28,6 +28,8 @@ package:
 #    - include-me.js
   exclude:
     - test.js
+    - test-event-bootstrap.json
+    - test-event-repository.json
     - CMIServerless.iml
     - postman-collection.json
     - LICENSE
@@ -53,8 +55,27 @@ functions:
                                 }'
   repositories:
     handler: cmis-repositories-service.handler
+    # TODO: uncomment when https://github.com/serverless/serverless/issues/1738 is fixed
+#    events:
+#      - http:
+#          path: '/'
+#          method: get
   repository:
     handler: cmis-repository-service.handler
+    events:
+      - http:
+          path: '{repoId}'
+          method: get
+          request:
+            template:
+              application/json: '#set( $repoId = "repoId" )
+                                 #set( $cmisselector = "cmisselector" )
+                                 #set( $typeId = "typeId" )
+                                 {
+                                    "repoId": "$input.params($repoId)",
+                                    "cmisselector": "$input.params($cmisselector)",
+                                    "typeId": "$input.params($typeId)"
+                                 }'
 
 #   you can add any of the following events
 #   events:
@@ -104,6 +125,7 @@ resources:
               Action:
                 - dynamodb:GetItem
                 - dynamodb:PutItem
+                - dynamodb:Scan
               Resource: arn:aws:dynamodb:*:*:table/CMISRepositories
         Roles:
           - Ref: IamRoleLambdaExecution
@@ -160,6 +182,7 @@ resources:
               Action:
                 - dynamodb:GetItem
                 - dynamodb:PutItem
+                - dynamodb:Query
               Resource: arn:aws:dynamodb:*:*:table/CMISObjects
         Roles:
           - Ref: IamRoleLambdaExecution

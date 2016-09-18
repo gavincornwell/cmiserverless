@@ -5,15 +5,7 @@ let cmis = require('./cmis.js');
 // main entry point
 module.exports.handler = (event, context, callback) => {
 
-  console.log("Starting CMISServerless bootstrap process...");
+  console.log("Bootstrap service received event: " + JSON.stringify(event, null, 2));
 
-  cmis.addRepository(event.repositoryId, event.baseUrl, function(error, result) {
-    if (error) {
-      callback(error);
-    } else {
-      var msg = "CMISServerless bootstrap process complete";
-      console.log(msg);
-      callback(null, msg);
-    }
-  });
+  cmis.addRepository(event.repositoryId, event.baseUrl, callback);
 };

@@ -5,7 +5,7 @@ let cmis = require('./cmis.js');
 // main entry point
 module.exports.handler = (event, context, callback) => {
 
-  console.log("Retrieving all repositories...");
+  console.log("Repositories service received event: " + JSON.stringify(event, null, 2));
 
   cmis.getRepositories(function(error, result) {
     if (error) {
