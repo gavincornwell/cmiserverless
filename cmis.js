@@ -10,6 +10,47 @@ let TYPES_TABLE_NAME = "CMISTypes";
 let OBJECTS_TABLE_NAME = "CMISObjects";
 
 /**
+ * Parses an event object into an options object
+ */
+exports.parseEvent = function(event) {
+  var options = {};
+
+  if (event) {
+    options.succinct = event.succinct;
+    options.includeAllowableActions = event.includeAllowableActions;
+
+    // TODO: setup paging info and other flags
+  }
+
+  console.log("Returning result: " + JSON.stringify(options, null, 2));
+
+  return options;
+};
+
+/**
+ * Parse properties from urlencoded form into an object
+ */
+exports.parseProperties = function(params) {
+
+  // convert params into JSON object
+	var properties = {};
+	var counter = 0;
+	var paramName, paramValue;
+	do {
+	    paramName = params["propertyId[" + counter + "]"];
+	    paramValue = params["propertyValue[" + counter + "]"];
+	    if (paramName !== undefined) {
+	        properties[paramName] = paramValue;
+	        counter++;
+	    }
+	} while (paramName !== undefined);
+
+	console.log("Returning result: " + JSON.stringify(properties, null, 2));
+
+	return properties;
+};
+
+/**
  * Retrieves all repositories from the database
  */
 exports.getRepositories = function(callback) {
@@ -148,68 +189,235 @@ exports.getTypeDescendants = function(repoId, typeId, callback) {
 };
 
 /**
- * Adds a folder to the database
+ * Retrieves an object from the database
  */
-exports.addFolderObject = function(name, description, path, callback) {
+exports.getObject = function(repoId, objectId, options, callback) {
 
   // check callback is a function
   if (!callback || callback === null || !(typeof callback == "function") ) {
     throw "callback is not a function";
   }
 
-  var parentId = null;
-  console.log("Adding folder object for parent id '" + parentId + "'...");
-
-  var guid = uuid.v4();
-
-  var folderObject = {
-    "cmis:objectId": guid,
-    "cmis:createdBy": "system",
-    "cmis:creationDate": new Date().getTime(),
-    "cmis:lastModifiedBy": "system",
-    "cmis:lastModificationDate": new Date().getTime(),
-    "cmis:baseTypeId": "cmis:folder",
-    "cmis:objectTypeId": "cmis:folder",
+  // check repoId has been provided
+  if (!repoId || repoId === null) {
+    callback("repoId parameter is mandatory", null);
+    return;
   }
 
-  if (name) {
-    folderObject["cmis:name"] = name;
-  } else {
-    folderObject["cmis:name"] = guid;
+  // check objectId has been provided
+  if (!objectId || objectId === null) {
+    callback("objectId parameter is mandatory", null);
+    return;
   }
 
-  if (description) {
-    folderObject["cmis:description"] = description;
+  // ensure we have an options object
+  if (!options) options = {};
+
+  console.log("Retrieving object with id '" + objectId + "'...");
+
+  // retrieve the object from the database
+	var params = {
+    TableName : OBJECTS_TABLE_NAME,
+    Key:{
+      "cmis:objectId": objectId
+    }
   }
 
-  if (path) {
-    folderObject["cmis:path"] = path;
-  }
-
-  if (parentId) {
-    folderObject["cmis:parentId"] = parentId;
-  }
-
-  // insert folder into DynamoDB
-  var folderParams = {
-    TableName: OBJECTS_TABLE_NAME,
-    Item: folderObject
-  };
-
-  dynamodb.putItem(folderParams, function(error, result) {
+  dynamodb.getItem(params, function(error, data) {
     if (error) {
       callback(error);
     } else {
-      console.log("Returning result: " + JSON.stringify(folderObject, null, 2));
-      callback(null, folderObject);
+      var object = {};
+
+      // add the allowable actions, if requested
+      if (options.includeAllowableActions) {
+        object.allowableActions = {
+          "canDeleteObject": false,
+          "canUpdateProperties": false,
+          "canGetFolderTree": false,
+          "canGetProperties": true,
+          "canGetObjectRelationships": false,
+          "canGetObjectParents": false,
+          "canGetFolderParent": false,
+          "canGetDescendants": false,
+          "canMoveObject": false,
+          "canDeleteContentStream": false,
+          "canCheckOut": false,
+          "canCancelCheckOut": false,
+          "canCheckIn": false,
+          "canSetContentStream": false,
+          "canGetAllVersions": false,
+          "canAddObjectToFolder": false,
+          "canRemoveObjectFromFolder": false,
+          "canGetContentStream": true,
+          "canApplyPolicy": false,
+          "canGetAppliedPolicies": false,
+          "canRemovePolicy": false,
+          "canGetChildren": true,
+          "canCreateDocument": false,
+          "canCreateFolder": true,
+          "canCreateRelationship": false,
+          "canCreateItem": false,
+          "canDeleteTree": false,
+          "canGetRenditions": false,
+          "canGetACL": false,
+          "canApplyACL": false
+        };
+      }
+
+      // if succinct response has been requested set object and return
+      // otherwise get type definition and build complete response
+      if (options.succinct) {
+        object.succinctProperties = data.Item;
+        console.log("Returning result: " + JSON.stringify(object, null, 2));
+        callback(null, object);
+        return;
+      } else {
+        // retrieve type definition for the object
+        var typeId = data.Item["cmis:objectTypeId"];
+        exports.getTypeDefinition(repoId, typeId, function(error, typeDefinition) {
+          if (error) {
+            callback(error);
+          } else {
+            object.properties = {};
+            for (let propertyName in data.Item) {
+              var propertyDefinition = typeDefinition.propertyDefinitions[propertyName];
+              if (!propertyDefinition) {
+                callback("Unknown property: " + propertyName);
+                return;
+              } else {
+                object.properties[propertyName] = {
+                  "id": propertyName,
+                  "localName": propertyDefinition.localName,
+                  "displayName": propertyDefinition.displayName,
+                  "queryName": propertyDefinition.queryName,
+                  "type": propertyDefinition.propertyType,
+                  "cardinality": propertyDefinition.cardinality,
+                  "value": data.Item[propertyName]
+                };
+              }
+            }
+
+            console.log("Returning result: " + JSON.stringify(object, null, 2));
+            callback(null, object);
+          }
+        });
+      }
     }
   });
 };
 
 /**
+ * Retrieves the children for an object
+ */
+exports.getChildren = function(repoId, objectId, options, callback) {
+};
+
+/**
+ * Retrieves the content for an object
+ */
+exports.getContentStream = function(repoId, objectId, callback) {
+};
+
+/**
+ * Adds a folder to the database
+ */
+exports.addFolderObject = function(repoId, parentId, name, description, options, callback) {
+
+  // check callback is a function
+  if (!callback || callback === null || !(typeof callback == "function") ) {
+    throw "callback is not a function";
+  }
+
+  // ensure we have an options object
+  if (!options) options = {};
+
+  console.log("Adding folder object to parent id '" + parentId + "'...");
+
+  // define function to do the actual processing
+  var process = function(parentPath) {
+
+    // create folder object
+    var guid = uuid.v4();
+
+    var folderObject = {
+      "cmis:objectId": guid,
+      "cmis:createdBy": "system",
+      "cmis:creationDate": new Date().getTime(),
+      "cmis:lastModifiedBy": "system",
+      "cmis:lastModificationDate": new Date().getTime(),
+      "cmis:baseTypeId": "cmis:folder",
+      "cmis:objectTypeId": "cmis:folder",
+    }
+
+    if (name) {
+      folderObject["cmis:name"] = name;
+    } else {
+      folderObject["cmis:name"] = guid;
+    }
+
+    if (description) {
+      folderObject["cmis:description"] = description;
+    }
+
+    if (parentId) {
+      folderObject["cmis:parentId"] = parentId;
+
+      var folderPath = parentPath;
+      if (parentPath !== "/")
+      {
+          folderPath += "/";
+      }
+      folderPath += folderObject["cmis:name"];
+      folderObject["cmis:path"] = folderPath;
+    } else {
+      folderObject["cmis:path"] = "/";
+    }
+
+    // insert folder into DynamoDB
+    var folderParams = {
+      TableName: OBJECTS_TABLE_NAME,
+      Item: folderObject
+    };
+
+    dynamodb.putItem(folderParams, function(error, data) {
+      if (error) {
+        callback(error);
+      } else {
+        // retrieve and return new object
+        exports.getObject(repoId, guid, options, callback);
+      }
+    });
+  };
+
+  if (!parentId || parentId === null) {
+    process("/");
+  } else {
+
+    // retrieve the parent so we can build the path
+    var parentOptions = {
+      "succinct": true
+    };
+    exports.getObject(repoId, parentId, parentOptions, function(error, result) {
+      if (error) {
+        callback(error);
+      } else {
+        process(result.succinctProperties["cmis:path"]);
+      }
+    });
+  }
+};
+
+/**
+ * Adds a document to the database
+ */
+exports.addDocumentObject = function(repoId, parentId, name, description, content, mimeType, callback) {
+};
+
+/**
  * Adds a type definiton to the database
  */
-exports.addTypeDefinition = function(typeId, typeDefinition, callback) {
+exports.addTypeDefinition = function(repoId, typeId, typeDefinition, callback) {
 
   // check callback is a function
   if (!callback || callback === null || !(typeof callback == "function") ) {
@@ -267,702 +475,703 @@ exports.addRepository = function(repoId, baseUrl, callback) {
 
   console.log("Adding repository with id '" + repoId + "'...");
 
-  // TODO: use conditional put to stop multiple root folders being added
-
-  exports.addFolderObject("Root Folder", "Root Folder", "/", function(error, result) {
+  // add the folder type definition
+  var folderTypeObject = {
+    "baseId": "cmis:folder",
+    "controllableACL": true,
+    "controllablePolicy": true,
+    "creatable": true,
+    "description": "Folder",
+    "displayName": "Folder",
+    "fileable": true,
+    "fulltextIndexed": false,
+    "includedInSupertypeQuery": true,
+    "localName": "cmis:folder",
+    "localNamespace": "http://apache.org",
+    "propertyDefinitions": {
+     "cmis:allowedChildObjectTypeIds": {
+       "cardinality": "multi",
+       "defaultValue": [],
+       "description": "Allowed Child Object Type Ids",
+       "displayName": "Allowed Child Object Type Ids",
+       "id": "cmis:allowedChildObjectTypeIds",
+       "inherited": false,
+       "localName": "cmis:allowedChildObjectTypeIds",
+       "orderable": false,
+       "propertyType": "id",
+       "queryable": false,
+       "queryName": "cmis:allowedChildObjectTypeIds",
+       "required": false,
+       "updatability": "readonly"
+     },
+     "cmis:baseTypeId": {
+       "cardinality": "single",
+       "description": "Base Type Id",
+       "displayName": "Base Type Id",
+       "id": "cmis:baseTypeId",
+       "inherited": false,
+       "localName": "cmis:baseTypeId",
+       "orderable": false,
+       "propertyType": "id",
+       "queryable": true,
+       "queryName": "cmis:baseTypeId",
+       "required": false,
+       "updatability": "readonly"
+     },
+     "cmis:changeToken": {
+       "cardinality": "single",
+       "description": "Change Token",
+       "displayName": "Change Token",
+       "id": "cmis:changeToken",
+       "inherited": false,
+       "localName": "cmis:changeToken",
+       "orderable": false,
+       "propertyType": "string",
+       "queryable": false,
+       "queryName": "cmis:changeToken",
+       "required": false,
+       "updatability": "readonly"
+     },
+     "cmis:createdBy": {
+       "cardinality": "single",
+       "description": "Created By",
+       "displayName": "Created By",
+       "id": "cmis:createdBy",
+       "inherited": false,
+       "localName": "cmis:createdBy",
+       "orderable": true,
+       "propertyType": "string",
+       "queryable": true,
+       "queryName": "cmis:createdBy",
+       "required": false,
+       "updatability": "readonly"
+     },
+     "cmis:creationDate": {
+       "cardinality": "single",
+       "description": "Creation Date",
+       "displayName": "Creation Date",
+       "id": "cmis:creationDate",
+       "inherited": false,
+       "localName": "cmis:creationDate",
+       "orderable": true,
+       "propertyType": "datetime",
+       "queryable": true,
+       "queryName": "cmis:creationDate",
+       "required": false,
+       "updatability": "readonly"
+     },
+     "cmis:description": {
+       "cardinality": "single",
+       "description": "Description",
+       "displayName": "Description",
+       "id": "cmis:description",
+       "inherited": false,
+       "localName": "cmis:description",
+       "orderable": false,
+       "propertyType": "string",
+       "queryable": false,
+       "queryName": "cmis:description",
+       "required": false,
+       "updatability": "readwrite"
+     },
+     "cmis:lastModificationDate": {
+       "cardinality": "single",
+       "description": "Last Modification Date",
+       "displayName": "Last Modification Date",
+       "id": "cmis:lastModificationDate",
+       "inherited": false,
+       "localName": "cmis:lastModificationDate",
+       "orderable": true,
+       "propertyType": "datetime",
+       "queryable": true,
+       "queryName": "cmis:lastModificationDate",
+       "required": false,
+       "updatability": "readonly"
+     },
+     "cmis:lastModifiedBy": {
+       "cardinality": "single",
+       "description": "Last Modified By",
+       "displayName": "Last Modified By",
+       "id": "cmis:lastModifiedBy",
+       "inherited": false,
+       "localName": "cmis:lastModifiedBy",
+       "orderable": true,
+       "propertyType": "string",
+       "queryable": true,
+       "queryName": "cmis:lastModifiedBy",
+       "required": false,
+       "updatability": "readonly"
+     },
+     "cmis:name": {
+       "cardinality": "single",
+       "description": "Name",
+       "displayName": "Name",
+       "id": "cmis:name",
+       "inherited": false,
+       "localName": "cmis:name",
+       "orderable": true,
+       "propertyType": "string",
+       "queryable": true,
+       "queryName": "cmis:name",
+       "required": true,
+       "updatability": "readwrite"
+     },
+     "cmis:objectId": {
+       "cardinality": "single",
+       "description": "Object Id",
+       "displayName": "Object Id",
+       "id": "cmis:objectId",
+       "inherited": false,
+       "localName": "cmis:objectId",
+       "orderable": false,
+       "propertyType": "id",
+       "queryable": true,
+       "queryName": "cmis:objectId",
+       "required": false,
+       "updatability": "readonly"
+     },
+     "cmis:objectTypeId": {
+       "cardinality": "single",
+       "description": "Object Type Id",
+       "displayName": "Object Type Id",
+       "id": "cmis:objectTypeId",
+       "inherited": false,
+       "localName": "cmis:objectTypeId",
+       "orderable": false,
+       "propertyType": "id",
+       "queryable": true,
+       "queryName": "cmis:objectTypeId",
+       "required": true,
+       "updatability": "oncreate"
+     },
+     "cmis:parentId": {
+       "cardinality": "single",
+       "description": "Parent Id",
+       "displayName": "Parent Id",
+       "id": "cmis:parentId",
+       "inherited": false,
+       "localName": "cmis:parentId",
+       "orderable": false,
+       "propertyType": "id",
+       "queryable": false,
+       "queryName": "cmis:parentId",
+       "required": false,
+       "updatability": "readonly"
+     },
+     "cmis:path": {
+       "cardinality": "single",
+       "description": "Path",
+       "displayName": "Path",
+       "id": "cmis:path",
+       "inherited": false,
+       "localName": "cmis:path",
+       "orderable": false,
+       "propertyType": "string",
+       "queryable": false,
+       "queryName": "cmis:path",
+       "required": false,
+       "updatability": "readonly"
+     },
+     "cmis:secondaryObjectTypeIds": {
+       "cardinality": "multi",
+       "defaultValue": [],
+       "description": "Secondary Type Ids",
+       "displayName": "Secondary Type Ids",
+       "id": "cmis:secondaryObjectTypeIds",
+       "inherited": false,
+       "localName": "cmis:secondaryObjectTypeIds",
+       "orderable": false,
+       "propertyType": "id",
+       "queryable": true,
+       "queryName": "cmis:secondaryObjectTypeIds",
+       "required": false,
+       "updatability": "readwrite"
+     }
+    },
+    "queryable": true,
+    "queryName": "cmis:folder",
+    "typeId": "cmis:folder",
+    "typeMutability": {
+     "create": true,
+     "delete": false,
+     "update": false
+    }
+  };
+  exports.addTypeDefinition(repoId, "cmis:folder", folderTypeObject, function(error, result) {
     if (error) {
       callback(error);
     } else {
-      var rootFolderId = result["cmis:objectId"];
-      var repositoryUrl = baseUrl + "/default";
-      var rootFolderUrl = repositoryUrl + "/object";
 
-      // construct the repository object
-      var repositoryObject = {
-        repositoryId: repoId,
-        repositoryName: "CMIServerless",
-        repositoryDescription: "A servless CMIS 1.1 browser binding compliant server",
-        vendorName: "Gavin Cornwell",
-        productName: "CMIServerless",
-        productVersion: "0.1",
-        cmisVersionSupported: "1.1",
-        capabilities:{
-            capabilityGetDescendants: false,
-            capabilityGetFolderTree: false,
-            capabilityOrderBy: "none",
-            capabilityContentStreamUpdatability: "anytime",
-            capabilityChanges: "none",
-            capabilityRenditions: "none",
-            capabilityMultifiling: false,
-            capabilityUnfiling: false,
-            capabilityVersionSpecificFiling: false,
-            capabilityPWCUpdatable: false,
-            capabilityPWCSearchable: false,
-            capabilityAllVersionsSearchable: false,
-            capabilityQuery: "none",
-            capabilityJoin: "none",
-            capabilityACL: "none"
+      // add the document type definition
+      var documentTypeObject = {
+        "baseId": "cmis:document",
+        "contentStreamAllowed": "allowed",
+        "controllableACL": true,
+        "controllablePolicy": true,
+        "creatable": true,
+        "description": "Document",
+        "displayName": "Document",
+        "fileable": true,
+        "fulltextIndexed": false,
+        "includedInSupertypeQuery": true,
+        "localName": "cmis:document",
+        "localNamespace": "http://apache.org",
+        "propertyDefinitions": {
+          "cmis:baseTypeId": {
+            "cardinality": "single",
+            "description": "Base Type Id",
+            "displayName": "Base Type Id",
+            "id": "cmis:baseTypeId",
+            "inherited": false,
+            "localName": "cmis:baseTypeId",
+            "orderable": false,
+            "propertyType": "id",
+            "queryable": true,
+            "queryName": "cmis:baseTypeId",
+            "required": false,
+            "updatability": "readonly"
+          },
+          "cmis:changeToken": {
+            "cardinality": "single",
+            "description": "Change Token",
+            "displayName": "Change Token",
+            "id": "cmis:changeToken",
+            "inherited": false,
+            "localName": "cmis:changeToken",
+            "orderable": false,
+            "propertyType": "string",
+            "queryable": false,
+            "queryName": "cmis:changeToken",
+            "required": false,
+            "updatability": "readonly"
+          },
+          "cmis:checkinComment": {
+            "cardinality": "single",
+            "description": "Checkin Comment",
+            "displayName": "Checkin Comment",
+            "id": "cmis:checkinComment",
+            "inherited": false,
+            "localName": "cmis:checkinComment",
+            "orderable": false,
+            "propertyType": "string",
+            "queryable": false,
+            "queryName": "cmis:checkinComment",
+            "required": false,
+            "updatability": "readonly"
+          },
+          "cmis:contentStreamFileName": {
+            "cardinality": "single",
+            "description": "Filename",
+            "displayName": "Filename",
+            "id": "cmis:contentStreamFileName",
+            "inherited": false,
+            "localName": "cmis:contentStreamFileName",
+            "orderable": false,
+            "propertyType": "string",
+            "queryable": false,
+            "queryName": "cmis:contentStreamFileName",
+            "required": false,
+            "updatability": "readonly"
+          },
+          "cmis:contentStreamId": {
+            "cardinality": "single",
+            "description": "Content Stream Id",
+            "displayName": "Content Stream Id",
+            "id": "cmis:contentStreamId",
+            "inherited": false,
+            "localName": "cmis:contentStreamId",
+            "orderable": false,
+            "propertyType": "id",
+            "queryable": false,
+            "queryName": "cmis:contentStreamId",
+            "required": false,
+            "updatability": "readonly"
+          },
+          "cmis:contentStreamLength": {
+            "cardinality": "single",
+            "description": "Content Stream Length",
+            "displayName": "Content Stream Length",
+            "id": "cmis:contentStreamLength",
+            "inherited": false,
+            "localName": "cmis:contentStreamLength",
+            "orderable": false,
+            "propertyType": "integer",
+            "queryable": false,
+            "queryName": "cmis:contentStreamLength",
+            "required": false,
+            "updatability": "readonly"
+          },
+          "cmis:contentStreamMimeType": {
+            "cardinality": "single",
+            "description": "MIME Type",
+            "displayName": "MIME Type",
+            "id": "cmis:contentStreamMimeType",
+            "inherited": false,
+            "localName": "cmis:contentStreamMimeType",
+            "orderable": false,
+            "propertyType": "string",
+            "queryable": false,
+            "queryName": "cmis:contentStreamMimeType",
+            "required": false,
+            "updatability": "readonly"
+          },
+          "cmis:createdBy": {
+            "cardinality": "single",
+            "description": "Created By",
+            "displayName": "Created By",
+            "id": "cmis:createdBy",
+            "inherited": false,
+            "localName": "cmis:createdBy",
+            "orderable": true,
+            "propertyType": "string",
+            "queryable": true,
+            "queryName": "cmis:createdBy",
+            "required": false,
+            "updatability": "readonly"
+          },
+          "cmis:creationDate": {
+            "cardinality": "single",
+            "description": "Creation Date",
+            "displayName": "Creation Date",
+            "id": "cmis:creationDate",
+            "inherited": false,
+            "localName": "cmis:creationDate",
+            "orderable": true,
+            "propertyType": "datetime",
+            "queryable": true,
+            "queryName": "cmis:creationDate",
+            "required": false,
+            "updatability": "readonly"
+          },
+          "cmis:description": {
+            "cardinality": "single",
+            "description": "Description",
+            "displayName": "Description",
+            "id": "cmis:description",
+            "inherited": false,
+            "localName": "cmis:description",
+            "orderable": false,
+            "propertyType": "string",
+            "queryable": false,
+            "queryName": "cmis:description",
+            "required": false,
+            "updatability": "readwrite"
+          },
+          "cmis:isImmutable": {
+            "cardinality": "single",
+            "description": "Is Immutable",
+            "displayName": "Is Immutable",
+            "id": "cmis:isImmutable",
+            "inherited": false,
+            "localName": "cmis:isImmutable",
+            "orderable": false,
+            "propertyType": "boolean",
+            "queryable": false,
+            "queryName": "cmis:isImmutable",
+            "required": false,
+            "updatability": "readonly"
+          },
+          "cmis:isLatestMajorVersion": {
+            "cardinality": "single",
+            "description": "Is Latest Major Version",
+            "displayName": "Is Latest Major Version",
+            "id": "cmis:isLatestMajorVersion",
+            "inherited": false,
+            "localName": "cmis:isLatestMajorVersion",
+            "orderable": false,
+            "propertyType": "boolean",
+            "queryable": false,
+            "queryName": "cmis:isLatestMajorVersion",
+            "required": false,
+            "updatability": "readonly"
+          },
+          "cmis:isLatestVersion": {
+            "cardinality": "single",
+            "description": "Is Latest Version",
+            "displayName": "Is Latest Version",
+            "id": "cmis:isLatestVersion",
+            "inherited": false,
+            "localName": "cmis:isLatestVersion",
+            "orderable": false,
+            "propertyType": "boolean",
+            "queryable": false,
+            "queryName": "cmis:isLatestVersion",
+            "required": false,
+            "updatability": "readonly"
+          },
+          "cmis:isMajorVersion": {
+            "cardinality": "single",
+            "description": "Is Major Version",
+            "displayName": "Is Major Version",
+            "id": "cmis:isMajorVersion",
+            "inherited": false,
+            "localName": "cmis:isMajorVersion",
+            "orderable": false,
+            "propertyType": "boolean",
+            "queryable": false,
+            "queryName": "cmis:isMajorVersion",
+            "required": false,
+            "updatability": "readonly"
+          },
+          "cmis:isPrivateWorkingCopy": {
+            "cardinality": "single",
+            "description": "Is Private Working Copy",
+            "displayName": "Is Private Working Copy",
+            "id": "cmis:isPrivateWorkingCopy",
+            "inherited": false,
+            "localName": "cmis:isPrivateWorkingCopy",
+            "orderable": false,
+            "propertyType": "boolean",
+            "queryable": true,
+            "queryName": "cmis:isPrivateWorkingCopy",
+            "required": false,
+            "updatability": "readonly"
+          },
+          "cmis:isVersionSeriesCheckedOut": {
+            "cardinality": "single",
+            "description": "Is Verison Series Checked Out",
+            "displayName": "Is Verison Series Checked Out",
+            "id": "cmis:isVersionSeriesCheckedOut",
+            "inherited": false,
+            "localName": "cmis:isVersionSeriesCheckedOut",
+            "orderable": false,
+            "propertyType": "boolean",
+            "queryable": true,
+            "queryName": "cmis:isVersionSeriesCheckedOut",
+            "required": false,
+            "updatability": "readonly"
+          },
+          "cmis:lastModificationDate": {
+            "cardinality": "single",
+            "description": "Last Modification Date",
+            "displayName": "Last Modification Date",
+            "id": "cmis:lastModificationDate",
+            "inherited": false,
+            "localName": "cmis:lastModificationDate",
+            "orderable": true,
+            "propertyType": "datetime",
+            "queryable": true,
+            "queryName": "cmis:lastModificationDate",
+            "required": false,
+            "updatability": "readonly"
+          },
+          "cmis:lastModifiedBy": {
+            "cardinality": "single",
+            "description": "Last Modified By",
+            "displayName": "Last Modified By",
+            "id": "cmis:lastModifiedBy",
+            "inherited": false,
+            "localName": "cmis:lastModifiedBy",
+            "orderable": true,
+            "propertyType": "string",
+            "queryable": true,
+            "queryName": "cmis:lastModifiedBy",
+            "required": false,
+            "updatability": "readonly"
+          },
+          "cmis:name": {
+            "cardinality": "single",
+            "description": "Name",
+            "displayName": "Name",
+            "id": "cmis:name",
+            "inherited": false,
+            "localName": "cmis:name",
+            "orderable": true,
+            "propertyType": "string",
+            "queryable": true,
+            "queryName": "cmis:name",
+            "required": true,
+            "updatability": "readwrite"
+          },
+          "cmis:objectId": {
+            "cardinality": "single",
+            "description": "Object Id",
+            "displayName": "Object Id",
+            "id": "cmis:objectId",
+            "inherited": false,
+            "localName": "cmis:objectId",
+            "orderable": false,
+            "propertyType": "id",
+            "queryable": true,
+            "queryName": "cmis:objectId",
+            "required": false,
+            "updatability": "readonly"
+          },
+          "cmis:objectTypeId": {
+            "cardinality": "single",
+            "description": "Object Type Id",
+            "displayName": "Object Type Id",
+            "id": "cmis:objectTypeId",
+            "inherited": false,
+            "localName": "cmis:objectTypeId",
+            "orderable": false,
+            "propertyType": "id",
+            "queryable": true,
+            "queryName": "cmis:objectTypeId",
+            "required": true,
+            "updatability": "oncreate"
+          },
+          "cmis:parentId": {
+            "cardinality": "single",
+            "description": "Parent Id",
+            "displayName": "Parent Id",
+            "id": "cmis:parentId",
+            "inherited": false,
+            "localName": "cmis:parentId",
+            "orderable": false,
+            "propertyType": "id",
+            "queryable": false,
+            "queryName": "cmis:parentId",
+            "required": false,
+            "updatability": "readonly"
+          },
+          "cmis:secondaryObjectTypeIds": {
+            "cardinality": "multi",
+            "defaultValue": [],
+            "description": "Secondary Type Ids",
+            "displayName": "Secondary Type Ids",
+            "id": "cmis:secondaryObjectTypeIds",
+            "inherited": false,
+            "localName": "cmis:secondaryObjectTypeIds",
+            "orderable": false,
+            "propertyType": "id",
+            "queryable": true,
+            "queryName": "cmis:secondaryObjectTypeIds",
+            "required": false,
+            "updatability": "readwrite"
+          },
+          "cmis:versionLabel": {
+            "cardinality": "single",
+            "description": "Version Label",
+            "displayName": "Version Label",
+            "id": "cmis:versionLabel",
+            "inherited": false,
+            "localName": "cmis:versionLabel",
+            "orderable": false,
+            "propertyType": "string",
+            "queryable": true,
+            "queryName": "cmis:versionLabel",
+            "required": false,
+            "updatability": "readonly"
+          },
+          "cmis:versionSeriesCheckedOutBy": {
+            "cardinality": "single",
+            "description": "Version Series Checked Out By",
+            "displayName": "Version Series Checked Out By",
+            "id": "cmis:versionSeriesCheckedOutBy",
+            "inherited": false,
+            "localName": "cmis:versionSeriesCheckedOutBy",
+            "orderable": false,
+            "propertyType": "string",
+            "queryable": false,
+            "queryName": "cmis:versionSeriesCheckedOutBy",
+            "required": false,
+            "updatability": "readonly"
+          },
+          "cmis:versionSeriesCheckedOutId": {
+            "cardinality": "single",
+            "description": "Version Series Checked Out Id",
+            "displayName": "Version Series Checked Out Id",
+            "id": "cmis:versionSeriesCheckedOutId",
+            "inherited": false,
+            "localName": "cmis:versionSeriesCheckedOutId",
+            "orderable": false,
+            "propertyType": "id",
+            "queryable": false,
+            "queryName": "cmis:versionSeriesCheckedOutId",
+            "required": false,
+            "updatability": "readonly"
+          },
+          "cmis:versionSeriesId": {
+            "cardinality": "single",
+            "description": "Version Series Id",
+            "displayName": "Version Series Id",
+            "id": "cmis:versionSeriesId",
+            "inherited": false,
+            "localName": "cmis:versionSeriesId",
+            "orderable": false,
+            "propertyType": "id",
+            "queryable": true,
+            "queryName": "cmis:versionSeriesId",
+            "required": false,
+            "updatability": "readonly"
+          }
         },
-        repositoryUrl: repositoryUrl,
-        rootFolderUrl: rootFolderUrl,
-        rootFolderId: rootFolderId,
-        changesIncomplete: false
-      }
-
-      // insert repo into DynamoDB
-      var repoParams = {
-        TableName: REPOSITORIES_TABLE_NAME,
-        Item: repositoryObject
+        "queryable": true,
+        "queryName": "cmis:document",
+        "typeId": "cmis:document",
+        "typeMutability": {
+          "create": true,
+          "delete": false,
+          "update": false
+        },
+        "versionable": false
       };
-      dynamodb.putItem(repoParams, function(error, result) {
+      exports.addTypeDefinition(repoId, "cmis:document", documentTypeObject, function(error, result) {
         if (error) {
           callback(error);
         } else {
 
-          // add the folder type definition
-          var folderTypeObject = {
-            "baseId": "cmis:folder",
-            "controllableACL": true,
-            "controllablePolicy": true,
-            "creatable": true,
-            "description": "Folder",
-            "displayName": "Folder",
-            "fileable": true,
-            "fulltextIndexed": false,
-            "includedInSupertypeQuery": true,
-            "localName": "cmis:folder",
-            "localNamespace": "http://apache.org",
-            "propertyDefinitions": {
-             "cmis:allowedChildObjectTypeIds": {
-               "cardinality": "multi",
-               "defaultValue": [],
-               "description": "Allowed Child Object Type Ids",
-               "displayName": "Allowed Child Object Type Ids",
-               "id": "cmis:allowedChildObjectTypeIds",
-               "inherited": false,
-               "localName": "cmis:allowedChildObjectTypeIds",
-               "orderable": false,
-               "propertyType": "id",
-               "queryable": false,
-               "queryName": "cmis:allowedChildObjectTypeIds",
-               "required": false,
-               "updatability": "readonly"
-             },
-             "cmis:baseTypeId": {
-               "cardinality": "single",
-               "description": "Base Type Id",
-               "displayName": "Base Type Id",
-               "id": "cmis:baseTypeId",
-               "inherited": false,
-               "localName": "cmis:baseTypeId",
-               "orderable": false,
-               "propertyType": "id",
-               "queryable": true,
-               "queryName": "cmis:baseTypeId",
-               "required": false,
-               "updatability": "readonly"
-             },
-             "cmis:changeToken": {
-               "cardinality": "single",
-               "description": "Change Token",
-               "displayName": "Change Token",
-               "id": "cmis:changeToken",
-               "inherited": false,
-               "localName": "cmis:changeToken",
-               "orderable": false,
-               "propertyType": "string",
-               "queryable": false,
-               "queryName": "cmis:changeToken",
-               "required": false,
-               "updatability": "readonly"
-             },
-             "cmis:createdBy": {
-               "cardinality": "single",
-               "description": "Created By",
-               "displayName": "Created By",
-               "id": "cmis:createdBy",
-               "inherited": false,
-               "localName": "cmis:createdBy",
-               "orderable": true,
-               "propertyType": "string",
-               "queryable": true,
-               "queryName": "cmis:createdBy",
-               "required": false,
-               "updatability": "readonly"
-             },
-             "cmis:creationDate": {
-               "cardinality": "single",
-               "description": "Creation Date",
-               "displayName": "Creation Date",
-               "id": "cmis:creationDate",
-               "inherited": false,
-               "localName": "cmis:creationDate",
-               "orderable": true,
-               "propertyType": "datetime",
-               "queryable": true,
-               "queryName": "cmis:creationDate",
-               "required": false,
-               "updatability": "readonly"
-             },
-             "cmis:description": {
-               "cardinality": "single",
-               "description": "Description",
-               "displayName": "Description",
-               "id": "cmis:description",
-               "inherited": false,
-               "localName": "cmis:description",
-               "orderable": false,
-               "propertyType": "string",
-               "queryable": false,
-               "queryName": "cmis:description",
-               "required": false,
-               "updatability": "readwrite"
-             },
-             "cmis:lastModificationDate": {
-               "cardinality": "single",
-               "description": "Last Modification Date",
-               "displayName": "Last Modification Date",
-               "id": "cmis:lastModificationDate",
-               "inherited": false,
-               "localName": "cmis:lastModificationDate",
-               "orderable": true,
-               "propertyType": "datetime",
-               "queryable": true,
-               "queryName": "cmis:lastModificationDate",
-               "required": false,
-               "updatability": "readonly"
-             },
-             "cmis:lastModifiedBy": {
-               "cardinality": "single",
-               "description": "Last Modified By",
-               "displayName": "Last Modified By",
-               "id": "cmis:lastModifiedBy",
-               "inherited": false,
-               "localName": "cmis:lastModifiedBy",
-               "orderable": true,
-               "propertyType": "string",
-               "queryable": true,
-               "queryName": "cmis:lastModifiedBy",
-               "required": false,
-               "updatability": "readonly"
-             },
-             "cmis:name": {
-               "cardinality": "single",
-               "description": "Name",
-               "displayName": "Name",
-               "id": "cmis:name",
-               "inherited": false,
-               "localName": "cmis:name",
-               "orderable": true,
-               "propertyType": "string",
-               "queryable": true,
-               "queryName": "cmis:name",
-               "required": true,
-               "updatability": "readwrite"
-             },
-             "cmis:objectId": {
-               "cardinality": "single",
-               "description": "Object Id",
-               "displayName": "Object Id",
-               "id": "cmis:objectId",
-               "inherited": false,
-               "localName": "cmis:objectId",
-               "orderable": false,
-               "propertyType": "id",
-               "queryable": true,
-               "queryName": "cmis:objectId",
-               "required": false,
-               "updatability": "readonly"
-             },
-             "cmis:objectTypeId": {
-               "cardinality": "single",
-               "description": "Object Type Id",
-               "displayName": "Object Type Id",
-               "id": "cmis:objectTypeId",
-               "inherited": false,
-               "localName": "cmis:objectTypeId",
-               "orderable": false,
-               "propertyType": "id",
-               "queryable": true,
-               "queryName": "cmis:objectTypeId",
-               "required": true,
-               "updatability": "oncreate"
-             },
-             "cmis:parentId": {
-               "cardinality": "single",
-               "description": "Parent Id",
-               "displayName": "Parent Id",
-               "id": "cmis:parentId",
-               "inherited": false,
-               "localName": "cmis:parentId",
-               "orderable": false,
-               "propertyType": "id",
-               "queryable": false,
-               "queryName": "cmis:parentId",
-               "required": false,
-               "updatability": "readonly"
-             },
-             "cmis:path": {
-               "cardinality": "single",
-               "description": "Path",
-               "displayName": "Path",
-               "id": "cmis:path",
-               "inherited": false,
-               "localName": "cmis:path",
-               "orderable": false,
-               "propertyType": "string",
-               "queryable": false,
-               "queryName": "cmis:path",
-               "required": false,
-               "updatability": "readonly"
-             },
-             "cmis:secondaryObjectTypeIds": {
-               "cardinality": "multi",
-               "defaultValue": [],
-               "description": "Secondary Type Ids",
-               "displayName": "Secondary Type Ids",
-               "id": "cmis:secondaryObjectTypeIds",
-               "inherited": false,
-               "localName": "cmis:secondaryObjectTypeIds",
-               "orderable": false,
-               "propertyType": "id",
-               "queryable": true,
-               "queryName": "cmis:secondaryObjectTypeIds",
-               "required": false,
-               "updatability": "readwrite"
-             }
-            },
-            "queryable": true,
-            "queryName": "cmis:folder",
-            "typeId": "cmis:folder",
-            "typeMutability": {
-             "create": true,
-             "delete": false,
-             "update": false
-            }
-          };
-          exports.addTypeDefinition("cmis:folder", folderTypeObject, function(error, result) {
+          // TODO: use conditional put to stop multiple root folders being added
+
+          exports.addFolderObject(repoId, null, "Root Folder", "Root Folder", null, function(error, result) {
             if (error) {
               callback(error);
             } else {
+              var rootFolderId = result.properties["cmis:objectId"].value;
+              var repositoryUrl = baseUrl + "/default";
+              var rootFolderUrl = repositoryUrl + "/object";
 
-              // add the document type definition
-              var documentTypeObject = {
-                "baseId": "cmis:document",
-                "contentStreamAllowed": "allowed",
-                "controllableACL": true,
-                "controllablePolicy": true,
-                "creatable": true,
-                "description": "Document",
-                "displayName": "Document",
-                "fileable": true,
-                "fulltextIndexed": false,
-                "includedInSupertypeQuery": true,
-                "localName": "cmis:document",
-                "localNamespace": "http://apache.org",
-                "propertyDefinitions": {
-                  "cmis:baseTypeId": {
-                    "cardinality": "single",
-                    "description": "Base Type Id",
-                    "displayName": "Base Type Id",
-                    "id": "cmis:baseTypeId",
-                    "inherited": false,
-                    "localName": "cmis:baseTypeId",
-                    "orderable": false,
-                    "propertyType": "id",
-                    "queryable": true,
-                    "queryName": "cmis:baseTypeId",
-                    "required": false,
-                    "updatability": "readonly"
-                  },
-                  "cmis:changeToken": {
-                    "cardinality": "single",
-                    "description": "Change Token",
-                    "displayName": "Change Token",
-                    "id": "cmis:changeToken",
-                    "inherited": false,
-                    "localName": "cmis:changeToken",
-                    "orderable": false,
-                    "propertyType": "string",
-                    "queryable": false,
-                    "queryName": "cmis:changeToken",
-                    "required": false,
-                    "updatability": "readonly"
-                  },
-                  "cmis:checkinComment": {
-                    "cardinality": "single",
-                    "description": "Checkin Comment",
-                    "displayName": "Checkin Comment",
-                    "id": "cmis:checkinComment",
-                    "inherited": false,
-                    "localName": "cmis:checkinComment",
-                    "orderable": false,
-                    "propertyType": "string",
-                    "queryable": false,
-                    "queryName": "cmis:checkinComment",
-                    "required": false,
-                    "updatability": "readonly"
-                  },
-                  "cmis:contentStreamFileName": {
-                    "cardinality": "single",
-                    "description": "Filename",
-                    "displayName": "Filename",
-                    "id": "cmis:contentStreamFileName",
-                    "inherited": false,
-                    "localName": "cmis:contentStreamFileName",
-                    "orderable": false,
-                    "propertyType": "string",
-                    "queryable": false,
-                    "queryName": "cmis:contentStreamFileName",
-                    "required": false,
-                    "updatability": "readonly"
-                  },
-                  "cmis:contentStreamId": {
-                    "cardinality": "single",
-                    "description": "Content Stream Id",
-                    "displayName": "Content Stream Id",
-                    "id": "cmis:contentStreamId",
-                    "inherited": false,
-                    "localName": "cmis:contentStreamId",
-                    "orderable": false,
-                    "propertyType": "id",
-                    "queryable": false,
-                    "queryName": "cmis:contentStreamId",
-                    "required": false,
-                    "updatability": "readonly"
-                  },
-                  "cmis:contentStreamLength": {
-                    "cardinality": "single",
-                    "description": "Content Stream Length",
-                    "displayName": "Content Stream Length",
-                    "id": "cmis:contentStreamLength",
-                    "inherited": false,
-                    "localName": "cmis:contentStreamLength",
-                    "orderable": false,
-                    "propertyType": "integer",
-                    "queryable": false,
-                    "queryName": "cmis:contentStreamLength",
-                    "required": false,
-                    "updatability": "readonly"
-                  },
-                  "cmis:contentStreamMimeType": {
-                    "cardinality": "single",
-                    "description": "MIME Type",
-                    "displayName": "MIME Type",
-                    "id": "cmis:contentStreamMimeType",
-                    "inherited": false,
-                    "localName": "cmis:contentStreamMimeType",
-                    "orderable": false,
-                    "propertyType": "string",
-                    "queryable": false,
-                    "queryName": "cmis:contentStreamMimeType",
-                    "required": false,
-                    "updatability": "readonly"
-                  },
-                  "cmis:createdBy": {
-                    "cardinality": "single",
-                    "description": "Created By",
-                    "displayName": "Created By",
-                    "id": "cmis:createdBy",
-                    "inherited": false,
-                    "localName": "cmis:createdBy",
-                    "orderable": true,
-                    "propertyType": "string",
-                    "queryable": true,
-                    "queryName": "cmis:createdBy",
-                    "required": false,
-                    "updatability": "readonly"
-                  },
-                  "cmis:creationDate": {
-                    "cardinality": "single",
-                    "description": "Creation Date",
-                    "displayName": "Creation Date",
-                    "id": "cmis:creationDate",
-                    "inherited": false,
-                    "localName": "cmis:creationDate",
-                    "orderable": true,
-                    "propertyType": "datetime",
-                    "queryable": true,
-                    "queryName": "cmis:creationDate",
-                    "required": false,
-                    "updatability": "readonly"
-                  },
-                  "cmis:description": {
-                    "cardinality": "single",
-                    "description": "Description",
-                    "displayName": "Description",
-                    "id": "cmis:description",
-                    "inherited": false,
-                    "localName": "cmis:description",
-                    "orderable": false,
-                    "propertyType": "string",
-                    "queryable": false,
-                    "queryName": "cmis:description",
-                    "required": false,
-                    "updatability": "readwrite"
-                  },
-                  "cmis:isImmutable": {
-                    "cardinality": "single",
-                    "description": "Is Immutable",
-                    "displayName": "Is Immutable",
-                    "id": "cmis:isImmutable",
-                    "inherited": false,
-                    "localName": "cmis:isImmutable",
-                    "orderable": false,
-                    "propertyType": "boolean",
-                    "queryable": false,
-                    "queryName": "cmis:isImmutable",
-                    "required": false,
-                    "updatability": "readonly"
-                  },
-                  "cmis:isLatestMajorVersion": {
-                    "cardinality": "single",
-                    "description": "Is Latest Major Version",
-                    "displayName": "Is Latest Major Version",
-                    "id": "cmis:isLatestMajorVersion",
-                    "inherited": false,
-                    "localName": "cmis:isLatestMajorVersion",
-                    "orderable": false,
-                    "propertyType": "boolean",
-                    "queryable": false,
-                    "queryName": "cmis:isLatestMajorVersion",
-                    "required": false,
-                    "updatability": "readonly"
-                  },
-                  "cmis:isLatestVersion": {
-                    "cardinality": "single",
-                    "description": "Is Latest Version",
-                    "displayName": "Is Latest Version",
-                    "id": "cmis:isLatestVersion",
-                    "inherited": false,
-                    "localName": "cmis:isLatestVersion",
-                    "orderable": false,
-                    "propertyType": "boolean",
-                    "queryable": false,
-                    "queryName": "cmis:isLatestVersion",
-                    "required": false,
-                    "updatability": "readonly"
-                  },
-                  "cmis:isMajorVersion": {
-                    "cardinality": "single",
-                    "description": "Is Major Version",
-                    "displayName": "Is Major Version",
-                    "id": "cmis:isMajorVersion",
-                    "inherited": false,
-                    "localName": "cmis:isMajorVersion",
-                    "orderable": false,
-                    "propertyType": "boolean",
-                    "queryable": false,
-                    "queryName": "cmis:isMajorVersion",
-                    "required": false,
-                    "updatability": "readonly"
-                  },
-                  "cmis:isPrivateWorkingCopy": {
-                    "cardinality": "single",
-                    "description": "Is Private Working Copy",
-                    "displayName": "Is Private Working Copy",
-                    "id": "cmis:isPrivateWorkingCopy",
-                    "inherited": false,
-                    "localName": "cmis:isPrivateWorkingCopy",
-                    "orderable": false,
-                    "propertyType": "boolean",
-                    "queryable": true,
-                    "queryName": "cmis:isPrivateWorkingCopy",
-                    "required": false,
-                    "updatability": "readonly"
-                  },
-                  "cmis:isVersionSeriesCheckedOut": {
-                    "cardinality": "single",
-                    "description": "Is Verison Series Checked Out",
-                    "displayName": "Is Verison Series Checked Out",
-                    "id": "cmis:isVersionSeriesCheckedOut",
-                    "inherited": false,
-                    "localName": "cmis:isVersionSeriesCheckedOut",
-                    "orderable": false,
-                    "propertyType": "boolean",
-                    "queryable": true,
-                    "queryName": "cmis:isVersionSeriesCheckedOut",
-                    "required": false,
-                    "updatability": "readonly"
-                  },
-                  "cmis:lastModificationDate": {
-                    "cardinality": "single",
-                    "description": "Last Modification Date",
-                    "displayName": "Last Modification Date",
-                    "id": "cmis:lastModificationDate",
-                    "inherited": false,
-                    "localName": "cmis:lastModificationDate",
-                    "orderable": true,
-                    "propertyType": "datetime",
-                    "queryable": true,
-                    "queryName": "cmis:lastModificationDate",
-                    "required": false,
-                    "updatability": "readonly"
-                  },
-                  "cmis:lastModifiedBy": {
-                    "cardinality": "single",
-                    "description": "Last Modified By",
-                    "displayName": "Last Modified By",
-                    "id": "cmis:lastModifiedBy",
-                    "inherited": false,
-                    "localName": "cmis:lastModifiedBy",
-                    "orderable": true,
-                    "propertyType": "string",
-                    "queryable": true,
-                    "queryName": "cmis:lastModifiedBy",
-                    "required": false,
-                    "updatability": "readonly"
-                  },
-                  "cmis:name": {
-                    "cardinality": "single",
-                    "description": "Name",
-                    "displayName": "Name",
-                    "id": "cmis:name",
-                    "inherited": false,
-                    "localName": "cmis:name",
-                    "orderable": true,
-                    "propertyType": "string",
-                    "queryable": true,
-                    "queryName": "cmis:name",
-                    "required": true,
-                    "updatability": "readwrite"
-                  },
-                  "cmis:objectId": {
-                    "cardinality": "single",
-                    "description": "Object Id",
-                    "displayName": "Object Id",
-                    "id": "cmis:objectId",
-                    "inherited": false,
-                    "localName": "cmis:objectId",
-                    "orderable": false,
-                    "propertyType": "id",
-                    "queryable": true,
-                    "queryName": "cmis:objectId",
-                    "required": false,
-                    "updatability": "readonly"
-                  },
-                  "cmis:objectTypeId": {
-                    "cardinality": "single",
-                    "description": "Object Type Id",
-                    "displayName": "Object Type Id",
-                    "id": "cmis:objectTypeId",
-                    "inherited": false,
-                    "localName": "cmis:objectTypeId",
-                    "orderable": false,
-                    "propertyType": "id",
-                    "queryable": true,
-                    "queryName": "cmis:objectTypeId",
-                    "required": true,
-                    "updatability": "oncreate"
-                  },
-                  "cmis:parentId": {
-                    "cardinality": "single",
-                    "description": "Parent Id",
-                    "displayName": "Parent Id",
-                    "id": "cmis:parentId",
-                    "inherited": false,
-                    "localName": "cmis:parentId",
-                    "orderable": false,
-                    "propertyType": "id",
-                    "queryable": false,
-                    "queryName": "cmis:parentId",
-                    "required": false,
-                    "updatability": "readonly"
-                  },
-                  "cmis:secondaryObjectTypeIds": {
-                    "cardinality": "multi",
-                    "defaultValue": [],
-                    "description": "Secondary Type Ids",
-                    "displayName": "Secondary Type Ids",
-                    "id": "cmis:secondaryObjectTypeIds",
-                    "inherited": false,
-                    "localName": "cmis:secondaryObjectTypeIds",
-                    "orderable": false,
-                    "propertyType": "id",
-                    "queryable": true,
-                    "queryName": "cmis:secondaryObjectTypeIds",
-                    "required": false,
-                    "updatability": "readwrite"
-                  },
-                  "cmis:versionLabel": {
-                    "cardinality": "single",
-                    "description": "Version Label",
-                    "displayName": "Version Label",
-                    "id": "cmis:versionLabel",
-                    "inherited": false,
-                    "localName": "cmis:versionLabel",
-                    "orderable": false,
-                    "propertyType": "string",
-                    "queryable": true,
-                    "queryName": "cmis:versionLabel",
-                    "required": false,
-                    "updatability": "readonly"
-                  },
-                  "cmis:versionSeriesCheckedOutBy": {
-                    "cardinality": "single",
-                    "description": "Version Series Checked Out By",
-                    "displayName": "Version Series Checked Out By",
-                    "id": "cmis:versionSeriesCheckedOutBy",
-                    "inherited": false,
-                    "localName": "cmis:versionSeriesCheckedOutBy",
-                    "orderable": false,
-                    "propertyType": "string",
-                    "queryable": false,
-                    "queryName": "cmis:versionSeriesCheckedOutBy",
-                    "required": false,
-                    "updatability": "readonly"
-                  },
-                  "cmis:versionSeriesCheckedOutId": {
-                    "cardinality": "single",
-                    "description": "Version Series Checked Out Id",
-                    "displayName": "Version Series Checked Out Id",
-                    "id": "cmis:versionSeriesCheckedOutId",
-                    "inherited": false,
-                    "localName": "cmis:versionSeriesCheckedOutId",
-                    "orderable": false,
-                    "propertyType": "id",
-                    "queryable": false,
-                    "queryName": "cmis:versionSeriesCheckedOutId",
-                    "required": false,
-                    "updatability": "readonly"
-                  },
-                  "cmis:versionSeriesId": {
-                    "cardinality": "single",
-                    "description": "Version Series Id",
-                    "displayName": "Version Series Id",
-                    "id": "cmis:versionSeriesId",
-                    "inherited": false,
-                    "localName": "cmis:versionSeriesId",
-                    "orderable": false,
-                    "propertyType": "id",
-                    "queryable": true,
-                    "queryName": "cmis:versionSeriesId",
-                    "required": false,
-                    "updatability": "readonly"
-                  }
+              // construct the repository object
+              var repositoryObject = {
+                repositoryId: repoId,
+                repositoryName: "CMIServerless",
+                repositoryDescription: "A servless CMIS 1.1 browser binding compliant server",
+                vendorName: "Gavin Cornwell",
+                productName: "CMIServerless",
+                productVersion: "0.1",
+                cmisVersionSupported: "1.1",
+                capabilities:{
+                    capabilityGetDescendants: false,
+                    capabilityGetFolderTree: false,
+                    capabilityOrderBy: "none",
+                    capabilityContentStreamUpdatability: "anytime",
+                    capabilityChanges: "none",
+                    capabilityRenditions: "none",
+                    capabilityMultifiling: false,
+                    capabilityUnfiling: false,
+                    capabilityVersionSpecificFiling: false,
+                    capabilityPWCUpdatable: false,
+                    capabilityPWCSearchable: false,
+                    capabilityAllVersionsSearchable: false,
+                    capabilityQuery: "none",
+                    capabilityJoin: "none",
+                    capabilityACL: "none"
                 },
-                "queryable": true,
-                "queryName": "cmis:document",
-                "typeId": "cmis:document",
-                "typeMutability": {
-                  "create": true,
-                  "delete": false,
-                  "update": false
-                },
-                "versionable": false
+                repositoryUrl: repositoryUrl,
+                rootFolderUrl: rootFolderUrl,
+                rootFolderId: rootFolderId,
+                changesIncomplete: false
+              }
+
+              // insert repo into DynamoDB
+              var repoParams = {
+                TableName: REPOSITORIES_TABLE_NAME,
+                Item: repositoryObject
               };
-              exports.addTypeDefinition("cmis:document", documentTypeObject, function(error, result) {
+              dynamodb.putItem(repoParams, function(error, result) {
                 if (error) {
                   callback(error);
                 } else {
+
                   console.log("Returning result: " + JSON.stringify(repositoryObject, null, 2));
                   callback(null, repositoryObject);
                 }
               });
             }
           });
-        }
+        };
       });
-    };
+    }
   });
 };
