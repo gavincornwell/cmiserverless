@@ -1,18 +1,24 @@
 'use strict';
 
 let uuid = require('node-uuid');
+let aws = require('aws-sdk');
 let doc = require('dynamodb-doc');
 let dynamodb = new doc.DynamoDB();
+let s3 = new aws.S3();
 
 // constants
 let REPOSITORIES_TABLE_NAME = "CMISRepositories";
 let TYPES_TABLE_NAME = "CMISTypes";
 let OBJECTS_TABLE_NAME = "CMISObjects";
+let CONTENT_BUCKET = "cmis-content-us-east-1";
 
 /**
  * Parses an event object into an options object
  */
 exports.parseEvent = function(event) {
+
+  console.log("Parsing event...");
+
   var options = {};
 
   if (event) {
@@ -31,6 +37,8 @@ exports.parseEvent = function(event) {
  * Parse properties from urlencoded form into an object
  */
 exports.parseProperties = function(params) {
+
+  console.log("Parsing event...");
 
   // convert params into JSON object
 	var properties = {};
@@ -317,6 +325,68 @@ exports.getChildren = function(repoId, objectId, options, callback) {
  * Retrieves the content for an object
  */
 exports.getContentStream = function(repoId, objectId, callback) {
+
+  // check callback is a function
+  if (!callback || callback === null || !(typeof callback == "function") ) {
+    throw "callback is not a function";
+  }
+
+  // check repoId has been provided
+  if (!repoId || repoId === null) {
+    callback("repoId parameter is mandatory", null);
+    return;
+  }
+
+  // check objectId has been provided
+  if (!objectId || objectId === null) {
+    callback("objectId parameter is mandatory", null);
+    return;
+  }
+
+  console.log("Retrieving content for object with id '" + objectId + "'...");
+
+  // retrieve the object from the database
+	var params = {
+    TableName : OBJECTS_TABLE_NAME,
+    Key:{
+        "cmis:objectId": objectId
+    }
+  }
+  dynamodb.getItem(params, function(error, data) {
+    if (error) {
+      callback(error);
+    } else {
+
+      var contentStreamId = data.Item["cmis:contentStreamId"];
+
+      if (contentStreamId !== undefined)
+      {
+        // get content from S3
+        var bucketParams = {
+          Bucket: CONTENT_BUCKET,
+          Key: contentStreamId
+        }
+        s3.getObject(bucketParams, function(error, data) {
+          if (error) {
+            callback(error);
+          } else {
+
+            // convert result into content string
+            let content = data.Body.toString('utf-8');
+
+            console.log("Returning result: " + content);
+
+            // return content
+            callback(null, content);
+          }
+        });
+      } else {
+        // return empty string for content as there is none!
+        console.log("Returning result: ");
+        callback(null, "");
+      }
+    }
+  });
 };
 
 /**
@@ -390,6 +460,7 @@ exports.addFolderObject = function(repoId, parentId, name, description, options,
     });
   };
 
+  // do the actual processing
   if (!parentId || parentId === null) {
     process("/");
   } else {
@@ -411,7 +482,110 @@ exports.addFolderObject = function(repoId, parentId, name, description, options,
 /**
  * Adds a document to the database
  */
-exports.addDocumentObject = function(repoId, parentId, name, description, content, mimeType, callback) {
+exports.addDocumentObject = function(repoId, parentId, name, description, content, mimeType, options, callback) {
+
+  // check callback is a function
+  if (!callback || callback === null || !(typeof callback == "function") ) {
+    throw "callback is not a function";
+  }
+
+  // check repoId has been provided
+  if (!repoId || repoId === null) {
+    callback("repoId parameter is mandatory", null);
+    return;
+  }
+
+  // check objectId has been provided
+  if (!parentId || parentId === null) {
+    callback("parentId parameter is mandatory", null);
+    return;
+  }
+
+  // ensure we have an options object
+  if (!options) options = {};
+
+  console.log("Adding document object to parent id '" + parentId + "'...");
+
+  // extract content from params and create object in S3
+//	var content = params.content;
+//	if (content === undefined)
+//	{
+//	    content = "";
+//	}
+//	else
+//	{
+//	    content = decodeURIComponent(content);
+//	    content = content.replace(/\+/g, " ");
+//	}
+
+	if (!content || content === null) {
+      content = "";
+  }
+
+	if (!mimeType || mimeType === null) {
+	    mimeType = "text/plain";
+	}
+
+	// create folder object
+  var guid = uuid.v4();
+
+  var documentObject = {
+    "cmis:objectId": guid,
+    "cmis:createdBy": "system",
+    "cmis:creationDate": new Date().getTime(),
+    "cmis:lastModifiedBy": "system",
+    "cmis:lastModificationDate": new Date().getTime(),
+    "cmis:baseTypeId": "cmis:document",
+    "cmis:objectTypeId": "cmis:document",
+    "cmis:parentId": parentId
+  }
+
+	if (name) {
+    documentObject["cmis:name"] = name;
+  } else {
+    documentObject["cmis:name"] = guid;
+  }
+
+  if (description) {
+    documentObject["cmis:description"] = description;
+  }
+
+	// generate id for content
+	var contentId = uuid.v4();
+
+	// Upload the content to an S3 bucket
+	var bucketParams = {
+	  Bucket: CONTENT_BUCKET,
+    Key: contentId,
+    Body: content,
+    ContentType: mimeType
+	};
+  s3.putObject(bucketParams, function(error) {
+    if (error) {
+      callback(error);
+    } else {
+
+      // add content stream related properties to response
+      documentObject["cmis:contentStreamId"] = contentId;
+      documentObject["cmis:contentStreamFileName"] = documentObject["cmis:name"];
+      documentObject["cmis:contentStreamMimeType"] = mimeType;
+      documentObject["cmis:contentStreamLength"] = content.length;
+
+      // create the document node in the database
+      var documentParams = {
+          TableName: OBJECTS_TABLE_NAME,
+          Item: documentObject
+      }
+      dynamodb.putItem(documentParams, function(error, data) {
+        if (error) {
+          callback(error);
+        } else {
+          // retrieve and return new object
+          exports.getObject(repoId, guid, options, callback);
+        }
+      });
+    }
+  });
 };
 
 /**

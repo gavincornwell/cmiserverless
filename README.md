@@ -13,6 +13,8 @@ This project implements a CMIS 1.1 compliant server on AWS using a serverless ar
 
 Replace **apiId** with the ID API Gateway generates for you and replace **region** with the AWS region you deployed to i.e. us-east-1.
 
+Manually map **cmiserverless-dev-repositories** lambda function to GET / in API Gateway.
+
 ## Running Tests
 
 To run the tests DyanmoDB is required, follow the [instructions](http://docs.aws.amazon.com/amazondynamodb/latest/developerguide/DynamoDBLocal.html) to download and run it locally.

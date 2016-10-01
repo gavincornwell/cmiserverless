@@ -2,9 +2,12 @@
 
 // setup dynamoDB to run locally
 var AWS = require("aws-sdk");
+//AWS.config.update({
+//  region: "us-east-1",
+//  endpoint: "http://localhost:8000"
+//});
 AWS.config.update({
-  region: "us-east-1",
-  endpoint: "http://localhost:8000"
+  region: "us-east-1"
 });
 
 let uuid = require('node-uuid');
@@ -169,40 +172,95 @@ exports.setup((error, result) => {
                   "includeAllowableActions": true
                 };
                 cmisObjectService.handler(event, context, function(error, result) {
+                  if (error) {
+                    console.error("Failed to retrieve root folder: " + JSON.stringify(error, null, 2));
+                  } else {
 
-                  // check we got the root folder back
-                  if (!result.properties["cmis:name"].value === "Root Folder") throw "TEST FAILED: expecting name of 'Root Folder'";
+                    // check we got the root folder back
+                    if (!result.properties["cmis:name"].value === "Root Folder") throw "TEST FAILED: expecting name of 'Root Folder'";
 
-                  // check we got the allowableOperations back
-                  if (!result.allowableActions.canCreateFolder) throw "TEST FAILED: expecting canCreateFolder to be true";
+                    // check we got the allowableOperations back
+                    if (!result.allowableActions.canCreateFolder) throw "TEST FAILED: expecting canCreateFolder to be true";
 
-                  // create a folder in the root of the repository
-                  var newFolderId = uuid.v4();
-                  var event = {
-                    "cmisaction": "createFolder",
-                    "repoId": "default",
-                    "objectId": rootFolderId,
-                    "propertyId[0]": "cmis:name",
-                    "propertyValue[0]": newFolderId,
-                    "propertyId[1]": "cmis:objectTypeId",
-                    "propertyValue[1]": "cmis:folder",
-                    "propertyId[2]": "cmis:description",
-                    "propertyValue[2]": "Test Folder",
-                    "succinct": true
-                  };
-                  cmisObjectService.handler(event, context, function(error, result) {
+                    // create a folder in the root of the repository
+                    var newFolderId = uuid.v4();
+                    var event = {
+                      "cmisaction": "createFolder",
+                      "repoId": "default",
+                      "objectId": rootFolderId,
+                      "propertyId[0]": "cmis:name",
+                      "propertyValue[0]": newFolderId,
+                      "propertyId[1]": "cmis:objectTypeId",
+                      "propertyValue[1]": "cmis:folder",
+                      "propertyId[2]": "cmis:description",
+                      "propertyValue[2]": "Test Folder",
+                      "succinct": true
+                    };
+                    cmisObjectService.handler(event, context, function(error, result) {
+                      if (error) {
+                        console.error("Failed to add folder: " + JSON.stringify(error, null, 2));
+                      } else {
 
-                    // check we got the new folder back
-                    if (result.succinctProperties["cmis:description"] != "Test Folder") throw "TEST FAILED: expecting description of 'Test Folder'";
-                    if (result.succinctProperties["cmis:name"] != newFolderId) throw "TEST FAILED: expecting name of '" + newFolderId + "'";
-                    var newPath = "/" + newFolderId;
-                    if (result.succinctProperties["cmis:path"] != newPath) throw "TEST FAILED: expecting path of '" + newPath + "'";
+                        // check we got the new folder back
+                        if (result.succinctProperties["cmis:description"] != "Test Folder") throw "TEST FAILED: expecting description of 'Test Folder'";
+                        if (result.succinctProperties["cmis:name"] != newFolderId) throw "TEST FAILED: expecting name of '" + newFolderId + "'";
+                        var newPath = "/" + newFolderId;
+                        if (result.succinctProperties["cmis:path"] != newPath) throw "TEST FAILED: expecting path of '" + newPath + "'";
 
-                    // TODO: add document to new folder
+                        // add document to new folder
+                        var newDocName = uuid.v4() + ".txt";
+                        var content = "This is some test content";
+                        var event = {
+                          "cmisaction": "createDocument",
+                          "repoId": "default",
+                          "objectId": newFolderId,
+                          "propertyId[0]": "cmis:name",
+                          "propertyValue[0]": newDocName,
+                          "propertyId[1]": "cmis:objectTypeId",
+                          "propertyValue[1]": "cmis:document",
+                          "propertyId[2]": "cmis:description",
+                          "propertyValue[2]": "Test Document",
+                          "content": content,
+                          "mimeType": "text/plain",
+                          "succinct": true
+                        };
+                        cmisObjectService.handler(event, context, function(error, result) {
+                          if (error) {
+                            console.error("Failed to add document: " + JSON.stringify(error, null, 2));
+                          } else {
 
-                    // if we get this far the tests passed
-                    console.log("Tests Passed!");
-                  });
+                            if (result.succinctProperties["cmis:contentStreamFileName"] != newDocName) {
+                              throw "TEST FAILED: expecting content stream name of '" + newDocName + "'";
+                            }
+
+                            if (result.succinctProperties["cmis:contentStreamMimeType"] != "text/plain") {
+                              throw "TEST FAILED: expecting content stream mimetype of 'text/plain'";
+                            }
+
+                            var newDocumentId = result.succinctProperties["cmis:objectId"];
+                            var event = {
+                              "cmisselector": "content",
+                              "repoId": "default",
+                              "objectId": newDocumentId
+                            };
+                            cmisObjectService.handler(event, context, function(error, result) {
+                              if (error) {
+                                console.error("Failed to get content: " + JSON.stringify(error, null, 2));
+                              } else {
+
+                                if (result != content) throw "TEST FAILED: expecting content of '" + content + "'";
+
+                                // TODO: get children of new folder
+
+                                // if we get this far the tests passed
+                                console.log("Tests Passed!");
+                              }
+                            });
+                          }
+                        });
+                      }
+                    });
+                  }
                 });
               }
             });
