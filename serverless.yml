@@ -186,3 +186,7 @@ resources:
               Resource: arn:aws:dynamodb:*:*:table/CMISObjects
         Roles:
           - Ref: IamRoleLambdaExecution
+    ContentBucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: cmis-content-us-east-1

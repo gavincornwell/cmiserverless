@@ -16,11 +16,6 @@ Replace **apiId** with the ID API Gateway generates for you and replace **region
 Manually map **cmiserverless-dev-repositories** lambda function to GET / in API Gateway.
 
 ## Running Tests
-
-To run the tests DyanmoDB is required, follow the [instructions](http://docs.aws.amazon.com/amazondynamodb/latest/developerguide/DynamoDBLocal.html) to download and run it locally.
-
-Once DynamoDB is running do the following:
-
     npm install aws_sdk
     npm install dynamodb-doc
     node test.js
