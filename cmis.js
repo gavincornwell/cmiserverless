@@ -318,7 +318,77 @@ exports.getObject = function(repoId, objectId, options, callback) {
 /**
  * Retrieves the children for an object
  */
-exports.getChildren = function(repoId, objectId, options, callback) {
+exports.getChildren = function(repoId, parentId, options, callback) {
+
+  // check callback is a function
+  if (!callback || callback === null || !(typeof callback == "function") ) {
+    throw "callback is not a function";
+  }
+
+  // check repoId has been provided
+  if (!repoId || repoId === null) {
+    callback("repoId parameter is mandatory", null);
+    return;
+  }
+
+  // check parentId has been provided
+  if (!parentId || parentId === null) {
+    callback("parentId parameter is mandatory", null);
+    return;
+  }
+
+  // ensure we have an options object
+  if (!options) options = {};
+
+  console.log("Retrieving children of object with id '" + parentId + "'...");
+
+  // retrieve the children of the given object from the database
+  var params = {
+    TableName : OBJECTS_TABLE_NAME,
+    IndexName: "ParentIdIndex",
+    KeyConditionExpression: "#pid = :id",
+    ExpressionAttributeNames: {
+        "#pid": "cmis:parentId"
+    },
+    ExpressionAttributeValues: {
+        ":id": parentId
+    }
+  }
+  dynamodb.query(params, function(error, data) {
+    if (error) {
+      callback(error);
+    } else {
+
+      // build the appropriate JSON representation
+      var results = {};
+      var items = [];
+
+      // construct the children response
+      if (options.succinct) {
+        for (var i = 0; i < data.Items.length; i++) {
+            var itemObject = {
+                "object": {
+                    "succinctProperties": data.Items[i]
+                }
+            }
+
+            items.push(itemObject);
+        }
+
+        results = {
+            "objects": items,
+            "hasMoreItems": false,
+            "numItems": data.Count
+        }
+
+        console.log("Returning result: " + JSON.stringify(results, null, 2));
+        callback(null, results);
+      } else {
+        // TODO: extract object building to separate method to support this
+        throw "Full response for getChildren not supported, please use succinct";
+      }
+    }
+  });
 };
 
 /**

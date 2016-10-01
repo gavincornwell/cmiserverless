@@ -134,6 +134,7 @@ cmisRepositoriesService.handler({}, context, function(error, result) {
                           throw "TEST FAILED: expecting content stream mimetype of 'text/plain'";
                         }
 
+                        // retrieve the content of the new document
                         var newDocumentId = result.succinctProperties["cmis:objectId"];
                         var event = {
                           "cmisselector": "content",
@@ -147,10 +148,28 @@ cmisRepositoriesService.handler({}, context, function(error, result) {
 
                             if (result != content) throw "TEST FAILED: expecting content of '" + content + "'";
 
-                            // TODO: get children of new folder
+                            // get children of new folder and verify the new document is present
+                            var event = {
+                              "cmisselector": "children",
+                              "repoId": "default",
+                              "objectId": newFolderId,
+                              "succinct": true
+                            };
+                            cmisObjectService.handler(event, context, function(error, result) {
+                              if (error) {
+                                console.error("Failed to get children: " + JSON.stringify(error, null, 2));
+                              } else {
 
-                            // if we get this far the tests passed
-                            console.log("Tests Passed!");
+                                if (result.objects === undefined) throw "TEST FAILED: expecting an objects property";
+                                if (result.objects.length != 1) throw "TEST FAILED: expecting an array with 1 entry";
+                                if (result.objects[0].object.succinctProperties["cmis:objectId"] != newDocumentId) {
+                                  throw "TEST FAILED: expecting the child object to be the document just created";
+                                }
+
+                                // if we get this far the tests passed
+                                console.log("Tests Passed!");
+                              }
+                            });
                           }
                         });
                       }
