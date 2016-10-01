@@ -164,12 +164,28 @@ resources:
         AttributeDefinitions:
           - AttributeName: cmis:objectId
             AttributeType: S
+          - AttributeName: cmis:parentId
+            AttributeType: S
+          - AttributeName: cmis:name
+            AttributeType: S
         KeySchema:
           - AttributeName: cmis:objectId
             KeyType: HASH
         ProvisionedThroughput:
           ReadCapacityUnits: 5
           WriteCapacityUnits: 5
+        GlobalSecondaryIndexes:
+          - IndexName: ParentIdIndex
+            KeySchema:
+              - AttributeName: cmis:parentId
+                KeyType: HASH
+              - AttributeName: cmis:name
+                KeyType: RANGE
+            ProvisionedThroughput:
+              ReadCapacityUnits: 5
+              WriteCapacityUnits: 5
+            Projection:
+              ProjectionType: ALL
     ObjectsDynamoDBIamPolicy:
       Type: AWS::IAM::Policy
       DependsOn: ObjectsDynamoDbTable
