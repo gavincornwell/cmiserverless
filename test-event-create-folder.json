@@ -1,0 +1,12 @@
+{
+  "cmisaction": "createFolder",
+  "propertyId[0]": "cmis:name",
+  "propertyValue[0]": "0f9be744-0b18-4e6f-941d-1034da41d6e2",
+  "propertyId[1]": "cmis:objectTypeId",
+  "propertyValue[1]": "cmis:folder",
+  "propertyId[2]": "cmis:description",
+  "propertyValue[2]": "Folder created with Serverless",
+  "succinct": "true",
+  "repoId": "default",
+  "objectId": "5af8abb5-4884-440e-a9a6-c15ce3b60b88"
+}

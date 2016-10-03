@@ -29,6 +29,9 @@ package:
   exclude:
     - test.js
     - test-event-bootstrap.json
+    - test-event-create-folder.json
+    - test-event-get-children.json
+    - test-event-get-object.json
     - test-event-repository.json
     - CMIServerless.iml
     - postman-collection.json
@@ -76,27 +79,52 @@ functions:
                                     "cmisselector": "$input.params($cmisselector)",
                                     "typeId": "$input.params($typeId)"
                                  }'
+  objects:
+    handler: cmis-object-service.handler
+    events:
+      - http:
+          path: '{repoId}/object'
+          method: get
+          request:
+            template:
+              application/json: '#set( $repoId = "repoId" )
+                                 #set( $cmisselector = "cmisselector" )
+                                 #set( $objectId = "objectId" )
+                                 #set( $succinct = "succinct" )
+                                 #set( $includeAllowableActions = "includeAllowableActions" )
+                                 {
+                                   "repoId": "$input.params($repoId)",
+                                   "cmisselector": "$input.params($cmisselector)",
+                                   "objectId": "$input.params($objectId)"
+                                   #if($input.params($succinct) != ""),"succinct": $input.params($succinct)#end
+                                   #if($input.params($includeAllowableActions) != ""),"includeAllowableActions": $input.params($includeAllowableActions)#end
+                                 }'
+      - http:
+          path: '{repoId}/object'
+          method: post
+          request:
+            template:
+              application/x-www-form-urlencoded: '#set( $repoId = "repoId" )
+                                                  #set( $objectId = "objectId" )
 
-#   you can add any of the following events
-#   events:
-#     - http:
-#         path: users/create
-#         method: get
-#     - s3: ${bucket}
-#     - schedule: rate(10 minutes)
-#     - sns: greeter-topic
-
-# you can add CloudFormation resource templates here
-#resources:
-#  Resources:
-#    NewResource:
-#      Type: AWS::S3::Bucket
-#      Properties:
-#        BucketName: my-new-bucket
-#  Outputs:
-#     NewOutput:
-#       Description: "Description for the output"
-#       Value: "Some output value"
+                                                  {
+                                                    #foreach( $token in $input.path("$").split("&") )
+                                                      #set( $keyVal = $token.split("=") )
+                                                      #set( $keyValSize = $keyVal.size() )
+                                                      #if( $keyValSize >= 1 )
+                                                        #set( $key = $util.urlDecode($keyVal[0]) )
+                                                        #if( $keyValSize >= 2 )
+                                                          #set( $val = $util.urlDecode($keyVal[1]) )
+                                                        #else
+                                                          #set( $val = "" )
+                                                        #end
+                                                        "$key": "$val"#if($foreach.hasNext),#end
+                                                      #end
+                                                    #end
+                                                    ,
+                                                    "repoId": "$input.params($repoId)",
+                                                    "objectId": "$input.params($objectId)"
+                                                  }'
 
 resources:
   Resources:
@@ -202,7 +230,41 @@ resources:
               Resource: arn:aws:dynamodb:*:*:table/CMISObjects
         Roles:
           - Ref: IamRoleLambdaExecution
+    ParentIndexDynamoDBIamPolicy:
+      Type: AWS::IAM::Policy
+      DependsOn: ObjectsDynamoDbTable
+      Properties:
+        PolicyName: lambda-dynamodb-parent-index
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:Query
+              Resource: arn:aws:dynamodb:*:*:table/CMISObjects/index/ParentIdIndex
+        Roles:
+          - Ref: IamRoleLambdaExecution
     ContentBucket:
       Type: AWS::S3::Bucket
       Properties:
         BucketName: cmis-content-us-east-1
+    ContentBucketIamPolicy:
+      Type: AWS::IAM::Policy
+      DependsOn: ContentBucket
+      Properties:
+        PolicyName: lambda-bucket-content
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - s3:ListBucket
+              Resource: arn:aws:s3:::cmis-content-us-east-1
+            - Effect: Allow
+              Action:
+                - s3:PutObject
+                - s3:GetObject
+                - s3:DeleteObject
+              Resource: arn:aws:s3:::cmis-content-us-east-1/*
+        Roles:
+          - Ref: IamRoleLambdaExecution
