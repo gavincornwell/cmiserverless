@@ -1,0 +1,184 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: 'AWS::Serverless-2016-10-31'
+Description: Serverless implementation of a CMIS 1.1 repository
+Resources:
+  bootstrap:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: cmis-bootstrap-service.handler
+      Runtime: nodejs4.3
+      CodeUri: ./src
+      Description: Bootstrap function called when infrastructure is created
+      MemorySize: 128
+      Timeout: 3
+      Role: !GetAtt LambdaExecutionIamRole.Arn
+      Events:
+        GetResource:
+          Type: Api
+          Properties:
+            Path: /bootstrap
+            Method: post
+  LambdaExecutionIamRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Path: "/"
+      Policies:
+        - PolicyName: lambda-cloudwatch-logs
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: '*'
+  RepositoriesDynamoDbTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: CMISRepositories
+      AttributeDefinitions:
+        - AttributeName: repositoryId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: repositoryId
+          KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+  RepositoriesDynamoDBIamPolicy:
+    Type: AWS::IAM::Policy
+    DependsOn: RepositoriesDynamoDbTable
+    Properties:
+      PolicyName: lambda-dynamodb-repositories
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - dynamodb:GetItem
+              - dynamodb:PutItem
+              - dynamodb:Scan
+            Resource: arn:aws:dynamodb:*:*:table/CMISRepositories
+      Roles:
+        - Ref: LambdaExecutionIamRole
+  TypesDynamoDbTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: CMISTypes
+      AttributeDefinitions:
+        - AttributeName: typeId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: typeId
+          KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+  TypesDynamoDBIamPolicy:
+    Type: AWS::IAM::Policy
+    DependsOn: TypesDynamoDbTable
+    Properties:
+      PolicyName: lambda-dynamodb-types
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - dynamodb:GetItem
+              - dynamodb:PutItem
+            Resource: arn:aws:dynamodb:*:*:table/CMISTypes
+      Roles:
+        - Ref: LambdaExecutionIamRole
+  ObjectsDynamoDbTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: CMISObjects
+      AttributeDefinitions:
+        - AttributeName: cmis:objectId
+          AttributeType: S
+        - AttributeName: cmis:parentId
+          AttributeType: S
+        - AttributeName: cmis:name
+          AttributeType: S
+      KeySchema:
+        - AttributeName: cmis:objectId
+          KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+      GlobalSecondaryIndexes:
+        - IndexName: ParentIdIndex
+          KeySchema:
+            - AttributeName: cmis:parentId
+              KeyType: HASH
+            - AttributeName: cmis:name
+              KeyType: RANGE
+          ProvisionedThroughput:
+            ReadCapacityUnits: 5
+            WriteCapacityUnits: 5
+          Projection:
+            ProjectionType: ALL
+  ObjectsDynamoDBIamPolicy:
+    Type: AWS::IAM::Policy
+    DependsOn: ObjectsDynamoDbTable
+    Properties:
+      PolicyName: lambda-dynamodb-objects
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - dynamodb:GetItem
+              - dynamodb:PutItem
+              - dynamodb:Query
+            Resource: arn:aws:dynamodb:*:*:table/CMISObjects
+      Roles:
+        - Ref: LambdaExecutionIamRole
+  ParentIndexDynamoDBIamPolicy:
+    Type: AWS::IAM::Policy
+    DependsOn: ObjectsDynamoDbTable
+    Properties:
+      PolicyName: lambda-dynamodb-parent-index
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - dynamodb:Query
+            Resource: arn:aws:dynamodb:*:*:table/CMISObjects/index/ParentIdIndex
+      Roles:
+        - Ref: LambdaExecutionIamRole
+  ContentBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: cmiserverless-content
+  ContentBucketIamPolicy:
+    Type: AWS::IAM::Policy
+    DependsOn: ContentBucket
+    Properties:
+      PolicyName: lambda-bucket-content
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - s3:ListBucket
+            Resource: arn:aws:s3:::cmiserverless-content
+          - Effect: Allow
+            Action:
+              - s3:PutObject
+              - s3:GetObject
+              - s3:DeleteObject
+            Resource: arn:aws:s3:::cmiserverless-content/*
+      Roles:
+        - Ref: LambdaExecutionIamRole

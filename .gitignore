@@ -6,8 +6,8 @@
 *.iml
 *.iws
 
-# Serverless
-.serverless
+# SAM
+sam-deploy.yaml
 
 # Logs
 logs
