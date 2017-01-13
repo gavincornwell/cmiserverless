@@ -3,7 +3,7 @@
 // setup dynamoDB to run locally
 var AWS = require("aws-sdk");
 AWS.config.update({
-  region: "us-east-1"
+  region: "eu-central-1"
 });
 
 let uuid = require('node-uuid');
@@ -12,8 +12,6 @@ let cmisBootstrapService = require('./cmis-bootstrap-service.js');
 let cmisRepositoriesService = require('./cmis-repositories-service.js');
 let cmisRepositoryService = require('./cmis-repository-service.js');
 let cmisObjectService = require('./cmis-object-service.js');
-let doc = require('dynamodb-doc');
-let dynamodb = new doc.DynamoDB();
 
 let context = {};
 
