@@ -10,7 +10,7 @@ let s3 = new aws.S3();
 let REPOSITORIES_TABLE_NAME = "CMISRepositories";
 let TYPES_TABLE_NAME = "CMISTypes";
 let OBJECTS_TABLE_NAME = "CMISObjects";
-let CONTENT_BUCKET = "cmis-content-us-east-1";
+let CONTENT_BUCKET = "cmiserverless-content";
 
 /**
  * Parses an event object into an options object
