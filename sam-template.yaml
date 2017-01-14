@@ -18,6 +18,22 @@ Resources:
           Properties:
             Path: /bootstrap
             Method: post
+  repositories:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: cmis-repositories-service.handler
+      Runtime: nodejs4.3
+      CodeUri: ./src
+      Description: Function to retrieve all repositories in the system
+      MemorySize: 128
+      Timeout: 3
+      Role: !GetAtt LambdaExecutionIamRole.Arn
+      Events:
+        GetResource:
+          Type: Api
+          Properties:
+            Path: /
+            Method: get
   LambdaExecutionIamRole:
     Type: AWS::IAM::Role
     Properties:

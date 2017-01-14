@@ -21,6 +21,6 @@ Use the [Postman](https://www.getpostman.com) collection in the test/postman fol
     cd src
     npm install aws-sdk
     npm install dynamodb-doc
-    node test.js
+    node cmis-test.js
     
 NOTE: You'll need to remove the aws-sdk and dynamodb-doc modules before performing subsequent deployments.

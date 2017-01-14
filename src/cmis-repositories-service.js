@@ -1,6 +1,7 @@
 'use strict';
 
 let cmis = require('./cmis.js');
+let utils = require('./lambda-utils.js');
 
 // main entry point
 module.exports.handler = (event, context, callback) => {
@@ -11,12 +12,15 @@ module.exports.handler = (event, context, callback) => {
     if (error) {
       callback(error);
     } else {
+
       // create an object with a property per repository
       var repos = {};
       result.forEach(function(item) {
           repos[item.repositoryId] = item;
       });
-      callback(null, repos);
+
+      // construct and return response object
+      callback(null, utils.buildProxyResponseObject(repos));
     }
   });
 };
