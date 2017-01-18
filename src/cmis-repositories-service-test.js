@@ -46,10 +46,10 @@ let event = {
 // run the tests
 console.log("Running repositories tests...");
 
-// bootstrap
+// retrieve repositories
 cmisRepositoriesService.handler(event, context, function(error, result) {
   if (error) {
-    console.error("Failed to retrive repositories: " + JSON.stringify(error, null, 2));
+    console.error("Failed to retrieve repositories: " + JSON.stringify(error, null, 2));
   } else {
 
     // ensure the status code is present and set to 200

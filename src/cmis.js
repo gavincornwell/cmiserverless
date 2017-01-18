@@ -757,7 +757,7 @@ exports.addRepository = function(repoId, baseUrl, callback) {
        "localName": "baseTypeId",
        "orderable": false,
        "propertyType": "id",
-       "queryable": true,
+       "queryable": false,
        "queryName": "cmis:baseTypeId",
        "required": false,
        "updatability": "readonly"
@@ -785,7 +785,7 @@ exports.addRepository = function(repoId, baseUrl, callback) {
        "localName": "createdBy",
        "orderable": true,
        "propertyType": "string",
-       "queryable": true,
+       "queryable": false,
        "queryName": "cmis:createdBy",
        "required": false,
        "updatability": "readonly"
@@ -799,7 +799,7 @@ exports.addRepository = function(repoId, baseUrl, callback) {
        "localName": "creationDate",
        "orderable": true,
        "propertyType": "datetime",
-       "queryable": true,
+       "queryable": false,
        "queryName": "cmis:creationDate",
        "required": false,
        "updatability": "readonly"
@@ -827,7 +827,7 @@ exports.addRepository = function(repoId, baseUrl, callback) {
        "localName": "lastModificationDate",
        "orderable": true,
        "propertyType": "datetime",
-       "queryable": true,
+       "queryable": false,
        "queryName": "cmis:lastModificationDate",
        "required": false,
        "updatability": "readonly"
@@ -841,7 +841,7 @@ exports.addRepository = function(repoId, baseUrl, callback) {
        "localName": "lastModifiedBy",
        "orderable": true,
        "propertyType": "string",
-       "queryable": true,
+       "queryable": false,
        "queryName": "cmis:lastModifiedBy",
        "required": false,
        "updatability": "readonly"
@@ -855,7 +855,7 @@ exports.addRepository = function(repoId, baseUrl, callback) {
        "localName": "name",
        "orderable": true,
        "propertyType": "string",
-       "queryable": true,
+       "queryable": false,
        "queryName": "cmis:name",
        "required": true,
        "updatability": "readwrite"
@@ -869,7 +869,7 @@ exports.addRepository = function(repoId, baseUrl, callback) {
        "localName": "objectId",
        "orderable": false,
        "propertyType": "id",
-       "queryable": true,
+       "queryable": false,
        "queryName": "cmis:objectId",
        "required": false,
        "updatability": "readonly"
@@ -883,7 +883,7 @@ exports.addRepository = function(repoId, baseUrl, callback) {
        "localName": "objectTypeId",
        "orderable": false,
        "propertyType": "id",
-       "queryable": true,
+       "queryable": false,
        "queryName": "cmis:objectTypeId",
        "required": true,
        "updatability": "oncreate"
@@ -926,13 +926,13 @@ exports.addRepository = function(repoId, baseUrl, callback) {
        "localName": "secondaryObjectTypeIds",
        "orderable": false,
        "propertyType": "id",
-       "queryable": true,
+       "queryable": false,
        "queryName": "cmis:secondaryObjectTypeIds",
        "required": false,
        "updatability": "readwrite"
      }
     },
-    "queryable": true,
+    "queryable": false,
     "queryName": "cmis:folder",
     "typeId": "cmis:folder",
     "typeMutability": {
@@ -970,7 +970,7 @@ exports.addRepository = function(repoId, baseUrl, callback) {
             "localName": "baseTypeId",
             "orderable": false,
             "propertyType": "id",
-            "queryable": true,
+            "queryable": false,
             "queryName": "cmis:baseTypeId",
             "required": false,
             "updatability": "readonly"
@@ -1068,7 +1068,7 @@ exports.addRepository = function(repoId, baseUrl, callback) {
             "localName": "createdBy",
             "orderable": true,
             "propertyType": "string",
-            "queryable": true,
+            "queryable": false,
             "queryName": "cmis:createdBy",
             "required": false,
             "updatability": "readonly"
@@ -1082,7 +1082,7 @@ exports.addRepository = function(repoId, baseUrl, callback) {
             "localName": "creationDate",
             "orderable": true,
             "propertyType": "datetime",
-            "queryable": true,
+            "queryable": false,
             "queryName": "cmis:creationDate",
             "required": false,
             "updatability": "readonly"
@@ -1166,7 +1166,7 @@ exports.addRepository = function(repoId, baseUrl, callback) {
             "localName": "isPrivateWorkingCopy",
             "orderable": false,
             "propertyType": "boolean",
-            "queryable": true,
+            "queryable": false,
             "queryName": "cmis:isPrivateWorkingCopy",
             "required": false,
             "updatability": "readonly"
@@ -1180,7 +1180,7 @@ exports.addRepository = function(repoId, baseUrl, callback) {
             "localName": "isVersionSeriesCheckedOut",
             "orderable": false,
             "propertyType": "boolean",
-            "queryable": true,
+            "queryable": false,
             "queryName": "cmis:isVersionSeriesCheckedOut",
             "required": false,
             "updatability": "readonly"
@@ -1194,7 +1194,7 @@ exports.addRepository = function(repoId, baseUrl, callback) {
             "localName": "lastModificationDate",
             "orderable": true,
             "propertyType": "datetime",
-            "queryable": true,
+            "queryable": false,
             "queryName": "cmis:lastModificationDate",
             "required": false,
             "updatability": "readonly"
@@ -1208,7 +1208,7 @@ exports.addRepository = function(repoId, baseUrl, callback) {
             "localName": "lastModifiedBy",
             "orderable": true,
             "propertyType": "string",
-            "queryable": true,
+            "queryable": false,
             "queryName": "cmis:lastModifiedBy",
             "required": false,
             "updatability": "readonly"
@@ -1222,7 +1222,7 @@ exports.addRepository = function(repoId, baseUrl, callback) {
             "localName": "name",
             "orderable": true,
             "propertyType": "string",
-            "queryable": true,
+            "queryable": false,
             "queryName": "cmis:name",
             "required": true,
             "updatability": "readwrite"
@@ -1236,7 +1236,7 @@ exports.addRepository = function(repoId, baseUrl, callback) {
             "localName": "objectId",
             "orderable": false,
             "propertyType": "id",
-            "queryable": true,
+            "queryable": false,
             "queryName": "cmis:objectId",
             "required": false,
             "updatability": "readonly"
@@ -1250,7 +1250,7 @@ exports.addRepository = function(repoId, baseUrl, callback) {
             "localName": "objectTypeId",
             "orderable": false,
             "propertyType": "id",
-            "queryable": true,
+            "queryable": false,
             "queryName": "cmis:objectTypeId",
             "required": true,
             "updatability": "oncreate"
@@ -1279,7 +1279,7 @@ exports.addRepository = function(repoId, baseUrl, callback) {
             "localName": "secondaryObjectTypeIds",
             "orderable": false,
             "propertyType": "id",
-            "queryable": true,
+            "queryable": false,
             "queryName": "cmis:secondaryObjectTypeIds",
             "required": false,
             "updatability": "readwrite"
@@ -1293,7 +1293,7 @@ exports.addRepository = function(repoId, baseUrl, callback) {
             "localName": "versionLabel",
             "orderable": false,
             "propertyType": "string",
-            "queryable": true,
+            "queryable": false,
             "queryName": "cmis:versionLabel",
             "required": false,
             "updatability": "readonly"
@@ -1335,13 +1335,13 @@ exports.addRepository = function(repoId, baseUrl, callback) {
             "localName": "versionSeriesId",
             "orderable": false,
             "propertyType": "id",
-            "queryable": true,
+            "queryable": false,
             "queryName": "cmis:versionSeriesId",
             "required": false,
             "updatability": "readonly"
           }
         },
-        "queryable": true,
+        "queryable": false,
         "queryName": "cmis:document",
         "typeId": "cmis:document",
         "typeMutability": {

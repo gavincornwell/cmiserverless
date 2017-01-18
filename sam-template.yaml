@@ -34,6 +34,22 @@ Resources:
           Properties:
             Path: /
             Method: get
+  repository:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: cmis-repository-service.handler
+      Runtime: nodejs4.3
+      CodeUri: ./src
+      Description: Function to retrieve information about a repository
+      MemorySize: 128
+      Timeout: 3
+      Role: !GetAtt LambdaExecutionIamRole.Arn
+      Events:
+        GetResource:
+          Type: Api
+          Properties:
+            Path: /{repoId}
+            Method: get
   LambdaExecutionIamRole:
     Type: AWS::IAM::Role
     Properties:

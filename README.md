@@ -10,7 +10,7 @@ This project implements a CMIS 1.1 compliant server on AWS using a serverless ar
     npm install node-uuid
     
 ## Deploy
-    aws cloudformation package --template-file sam-template.yaml --s3-bucket cmiserverless-deployment --output-template-file sam-deploy.yaml
+    aws cloudformation package --template-file sam-template.yaml --s3-bucket <bucket-name> --output-template-file sam-deploy.yaml
     aws cloudformation deploy --template-file sam-deploy.yaml --stack-name cmiserverless --capabilities CAPABILITY_IAM
     
 ## Testing
