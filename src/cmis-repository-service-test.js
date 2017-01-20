@@ -48,6 +48,31 @@ let typeDefinitionEvent = {
     "isBase64Encoded": false
 };
 
+// run the tests
+console.log("Running repository tests...");
+
+// retrieve type definition
+cmisRepositoryService.handler(typeDefinitionEvent, context, function(error, result) {
+  if (error) {
+    console.error("Failed to retrieve type definition: " + JSON.stringify(error, null, 2));
+  } else {
+
+    // ensure the status code is present and set to 200
+    if (result.statusCode != "200") throw "TEST FAILED: expecting to receive 200 status code";
+
+    var resultBody = JSON.parse(result.body);
+
+    // ensure there's a typeId property set to "cmis:folder"
+    if (!resultBody.typeId == "cmis:folder") throw "TEST FAILED: expecting to receive typeId of cmis:folder";
+
+    // ensure there's a property definition named cmis:objectId
+    if (!resultBody.propertyDefinitions["cmis:objectId"]) throw "TEST FAILED: expecting to receive cmis:objectId property definition";
+
+    // if we get this far the tests passed
+    console.log("Type definition tests passed!");
+  }
+});
+
 let typeDescendantsEvent = {
    "resource": "/{repoId}",
    "path": "/default",
@@ -88,6 +113,25 @@ let typeDescendantsEvent = {
    "isBase64Encoded": false
 };
 
+// retrieve type descendants
+cmisRepositoryService.handler(typeDescendantsEvent, context, function(error, result) {
+  if (error) {
+    console.error("Failed to retrieve type descendants: " + JSON.stringify(error, null, 2));
+  } else {
+
+    // ensure the status code is present and set to 200
+    if (result.statusCode != "200") throw "TEST FAILED: expecting to receive 200 status code";
+
+    var resultBody = JSON.parse(result.body);
+
+    // ensure an empty array is returned
+    if (!resultBody.length == 0) throw "TEST FAILED: expecting to receive an empty array";
+
+    // if we get this far the tests passed
+    console.log("Type descendants tests passed!");
+  }
+});
+
 let invalidSelectorEvent = {
    "resource": "/{repoId}",
    "path": "/default",
@@ -127,50 +171,6 @@ let invalidSelectorEvent = {
    "body": null,
    "isBase64Encoded": false
 };
-
-// run the tests
-console.log("Running repository tests...");
-
-// retrieve type definition
-cmisRepositoryService.handler(typeDefinitionEvent, context, function(error, result) {
-  if (error) {
-    console.error("Failed to retrieve type definition: " + JSON.stringify(error, null, 2));
-  } else {
-
-    // ensure the status code is present and set to 200
-    if (result.statusCode != "200") throw "TEST FAILED: expecting to receive 200 status code";
-
-    var resultBody = JSON.parse(result.body);
-
-    // ensure there's a typeId property set to "cmis:folder"
-    if (!resultBody.typeId == "cmis:folder") throw "TEST FAILED: expecting to receive typeId of cmis:folder";
-
-    // ensure there's a property definition named cmis:objectId
-    if (!resultBody.propertyDefinitions["cmis:objectId"]) throw "TEST FAILED: expecting to receive cmis:objectId property definition";
-
-    // if we get this far the tests passed
-    console.log("Type definition tests passed!");
-  }
-});
-
-// retrieve type descendants
-cmisRepositoryService.handler(typeDescendantsEvent, context, function(error, result) {
-  if (error) {
-    console.error("Failed to retrieve type descendants: " + JSON.stringify(error, null, 2));
-  } else {
-
-    // ensure the status code is present and set to 200
-    if (result.statusCode != "200") throw "TEST FAILED: expecting to receive 200 status code";
-
-    var resultBody = JSON.parse(result.body);
-
-    // ensure an empty array is returned
-    if (!resultBody.length == 0) throw "TEST FAILED: expecting to receive an empty array";
-
-    // if we get this far the tests passed
-    console.log("Type descendants tests passed!");
-  }
-});
 
 // test invalid selector
 cmisRepositoryService.handler(invalidSelectorEvent, context, function(error, result) {

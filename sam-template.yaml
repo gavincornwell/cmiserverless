@@ -13,7 +13,7 @@ Resources:
       Timeout: 3
       Role: !GetAtt LambdaExecutionIamRole.Arn
       Events:
-        GetResource:
+        PostResource:
           Type: Api
           Properties:
             Path: /bootstrap
@@ -50,6 +50,27 @@ Resources:
           Properties:
             Path: /{repoId}
             Method: get
+  object:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: cmis-object-service.handler
+      Runtime: nodejs4.3
+      CodeUri: ./src
+      Description: Function to manage objects in a repository
+      MemorySize: 128
+      Timeout: 3
+      Role: !GetAtt LambdaExecutionIamRole.Arn
+      Events:
+        GetResource:
+          Type: Api
+          Properties:
+            Path: /{repoId}/object
+            Method: get
+        PostResource:
+          Type: Api
+          Properties:
+            Path: /{repoId}/object
+            Method: post
   LambdaExecutionIamRole:
     Type: AWS::IAM::Role
     Properties:

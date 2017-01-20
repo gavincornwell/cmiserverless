@@ -17,25 +17,22 @@ module.exports.handler = (event, context, callback) => {
   // extract typeId
   var typeId = event.queryStringParameters.typeId;
 
+  // define an inline callback function to use below
+  var lambdaCallback = function(error, result) {
+    if (error) {
+     callback(error);
+    } else {
+     callback(null, utils.buildProxyResponseObject(result));
+    }
+  };
+
   // dispatch to appropriate function
   switch(selector) {
     case "typeDefinition":
-      cmis.getTypeDefinition(repoId, typeId, function(error, data) {
-        if (error) {
-          callback(error);
-        } else {
-          callback(null, utils.buildProxyResponseObject(data));
-        }
-      });
+      cmis.getTypeDefinition(repoId, typeId, lambdaCallback);
       break;
     case "typeDescendants":
-      cmis.getTypeDescendants(repoId, typeId, function(error, data) {
-        if (error) {
-          callback(error);
-        } else {
-          callback(null, utils.buildProxyResponseObject(data));
-        }
-      });
+      cmis.getTypeDescendants(repoId, typeId, lambdaCallback);
       break;
     default:
       callback(new Error("Unrecognised selector: " + selector));

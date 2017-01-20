@@ -29,15 +29,15 @@ exports.buildProxyResponseObject = function(result, statusCode, headers) {
 /**
  * Parses an event object into an options object
  */
-exports.parseEvent = function(event) {
+exports.parseOptions = function(event) {
 
-  console.log("Parsing event...");
+  console.log("Parsing options...");
 
   var options = {};
 
   if (event) {
-    options.succinct = event.succinct;
-    options.includeAllowableActions = event.includeAllowableActions;
+    options.succinct = event.queryStringParameters.succinct;
+    options.includeAllowableActions = event.queryStringParameters.includeAllowableActions;
 
     // TODO: setup paging info and other flags
   }
@@ -48,7 +48,42 @@ exports.parseEvent = function(event) {
 };
 
 /**
- * Parse properties from urlencoded form into an object
+ * Parse x-www-form-urlencoded form body into object
+ */
+exports.parseUrlEncodedBody = function(event) {
+
+  console.log("Parsing x-www-form-urlencoded body...");
+
+  var result = {};
+
+  if (event.body) {
+    // split the string into name=value pairs
+    var params = event.body.split("&");
+
+    // split each name=value pair and store in result object
+    params.forEach(function (item, index, array) {
+      var nameValue = item.split("=");
+      var name, value;
+      if (nameValue.length >= 1) {
+        name = decodeURIComponent(nameValue[0]);
+        if (nameValue.length >=2) {
+          value = decodeURIComponent(nameValue[1]);
+        } else {
+          value = "";
+        }
+
+        result[name] = value;
+      }
+    });
+  }
+
+  console.log("Returning result: " + JSON.stringify(result, null, 2));
+
+  return result;
+}
+
+/**
+ * Parse individual properties from urlencoded form into an object
  */
 exports.parseProperties = function(params) {
 
