@@ -73,7 +73,7 @@ module.exports.handler = (event, context, callback) => {
         cmis.addFolderObject(repoId, objectId, name, description, options, lambdaCallbackPost);
         break;
       case "createDocument":
-        cmis.addDocumentObject(repoId, objectId, name, description, event.content, event.mimeType, options, lambdaCallbackPost);
+        cmis.addDocumentObject(repoId, objectId, name, description, params.content, params.mimeType, options, lambdaCallbackPost);
         break;
       default:
         callback(new Error("Unrecognised action: " + action));
